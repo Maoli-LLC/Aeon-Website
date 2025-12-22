@@ -1,0 +1,147 @@
+import { Link, Outlet } from 'react-router-dom';
+import { Menu, X } from 'lucide-react';
+import { useState } from 'react';
+
+export function Layout() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const navigationLinks = [
+    { name: 'Home', path: '/' },
+    { name: 'Sovereign Dream Lattice', path: '/dream-lattice' },
+    { name: 'Music Creation', path: '/music' },
+    { name: 'Store', path: '/store' },
+    { name: 'Blog', path: '/blog' },
+    { name: 'Contact', path: '/contact' },
+  ];
+
+  return (
+    <div className="min-h-screen bg-black text-white" style={{ fontFamily: "'Cormorant Garamond', serif" }}>
+      {/* Navigation */}
+      <nav className="border-b border-primary/20 bg-black/95 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <Link to="/" className="flex items-center">
+              <span className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                Team Aeon
+              </span>
+            </Link>
+
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-8">
+              {navigationLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className="text-white/80 hover:text-primary transition-colors"
+                >
+                  {link.name}
+                </Link>
+              ))}
+            </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden text-white"
+            >
+              {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+            </button>
+          </div>
+
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden py-4 border-t border-primary/20">
+              <div className="flex flex-col space-y-4">
+                {navigationLinks.map((link) => (
+                  <Link
+                    key={link.path}
+                    to={link.path}
+                    className="text-white/80 hover:text-primary transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {link.name}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </nav>
+
+      {/* Main Content */}
+      <main>
+        <Outlet />
+      </main>
+
+      {/* Newsletter Signup */}
+      <section className="bg-secondary border-t border-primary/20 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-2xl mx-auto text-center">
+            <h3 className="text-3xl mb-4 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+              Join Team Aeon
+            </h3>
+            <p className="text-muted-foreground mb-6">
+              Get codex entries, drops, and transmissions directly to your inbox
+            </p>
+            <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+              <input
+                type="email"
+                placeholder="Enter your email"
+                className="flex-1 px-4 py-3 bg-input-background border border-primary/20 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-white placeholder:text-muted-foreground"
+              />
+              <button
+                type="submit"
+                className="px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+              >
+                Subscribe
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-black border-t border-primary/20 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            <div>
+              <h4 className="text-xl mb-4 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                Team Aeon
+              </h4>
+              <p className="text-muted-foreground">
+                Embrace the New Harmonic
+              </p>
+            </div>
+
+            <div>
+              <h4 className="mb-4 text-primary">Quick Links</h4>
+              <ul className="space-y-2">
+                <li><Link to="/blog" className="text-muted-foreground hover:text-primary transition-colors">Blog</Link></li>
+                <li><Link to="/music" className="text-muted-foreground hover:text-primary transition-colors">Music</Link></li>
+                <li><Link to="/store" className="text-muted-foreground hover:text-primary transition-colors">Store</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <h4 className="mb-4 text-primary">Connect</h4>
+              <div className="flex space-x-4">
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Instagram</a>
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Facebook</a>
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">X</a>
+                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">TikTok</a>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t border-primary/20 pt-8 flex flex-col sm:flex-row justify-between items-center text-muted-foreground text-sm">
+            <p>&copy; 2024 Team Aeon. All rights reserved.</p>
+            <div className="flex space-x-4 mt-4 sm:mt-0">
+              <Link to="/privacy" className="hover:text-primary transition-colors">Privacy Policy</Link>
+              <Link to="/terms" className="hover:text-primary transition-colors">Terms of Use</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
