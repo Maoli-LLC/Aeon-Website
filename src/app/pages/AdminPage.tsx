@@ -244,6 +244,30 @@ function BlogsSection() {
               required
             />
           </div>
+          <div className="flex gap-4 flex-wrap">
+            <div>
+              <label className="block text-primary mb-2">Blog</label>
+              <select
+                value={formData.category}
+                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+              >
+                <option value="sahlien">Sahlien Blog</option>
+                <option value="dream">Dream Blog</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-primary mb-2">Status</label>
+              <select
+                value={formData.published ? 'publish' : 'draft'}
+                onChange={e => setFormData({ ...formData, published: e.target.value === 'publish' })}
+                className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+              >
+                <option value="draft">Draft</option>
+                <option value="publish">Publish</option>
+              </select>
+            </div>
+          </div>
           <div className="flex gap-4">
             <button type="submit" className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90">
               {editingPost ? 'Update' : 'Create'}
