@@ -207,7 +207,7 @@ export function BlogPage() {
         <section className="py-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="prose prose-invert max-w-none mb-12">
-              <p className="text-white/90 leading-relaxed text-lg italic border-l-4 border-primary/40 pl-4 mb-8">
+              <p className="text-white/90 leading-relaxed text-xl mb-8 border-l-4 border-primary/40 pl-4">
                 {selectedPost.excerpt}
               </p>
               {selectedPost.content && (
