@@ -1,5 +1,9 @@
+import { useState } from 'react';
+
 export function BlogPage() {
-  const blogPosts = [
+  const [activeTab, setActiveTab] = useState<'sahlien' | 'dream'>('sahlien');
+
+  const sahlienBlogPosts = [
     {
       title: 'The Aeon Codex',
       excerpt: 'Exploring the foundations of harmonic alignment and the dismantling of illusion...',
@@ -32,6 +36,41 @@ export function BlogPage() {
     },
   ];
 
+  const dreamBlogPosts = [
+    {
+      title: 'Understanding Dream Symbols',
+      excerpt: 'A guide to interpreting the universal language of dreams and their symbolic meanings...',
+      date: 'December 2024',
+      link: '#',
+    },
+    {
+      title: 'The Archetypes Within',
+      excerpt: 'Exploring Jungian archetypes and how they manifest in your dreamscape...',
+      date: 'December 2024',
+      link: '#',
+    },
+    {
+      title: 'Lucid Dreaming Foundations',
+      excerpt: 'Beginning your journey into conscious dream exploration and self-discovery...',
+      date: 'November 2024',
+      link: '#',
+    },
+    {
+      title: 'Water in Dreams',
+      excerpt: 'The emotional depths and transformative power of water symbolism in dreams...',
+      date: 'November 2024',
+      link: '#',
+    },
+    {
+      title: 'Messages from the Subconscious',
+      excerpt: 'Learning to listen and decode the wisdom your dreams are trying to share...',
+      date: 'October 2024',
+      link: '#',
+    },
+  ];
+
+  const currentPosts = activeTab === 'sahlien' ? sahlienBlogPosts : dreamBlogPosts;
+
   return (
     <div>
       {/* Header */}
@@ -46,11 +85,41 @@ export function BlogPage() {
         </div>
       </section>
 
+      {/* Blog Tabs */}
+      <section className="py-8 border-b border-primary/20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center gap-4">
+            <button
+              onClick={() => setActiveTab('sahlien')}
+              className={`px-6 py-3 rounded-md text-lg transition-all ${
+                activeTab === 'sahlien'
+                  ? 'bg-primary text-black'
+                  : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+              style={{ fontFamily: "'Cinzel', serif" }}
+            >
+              Sahlien Blog
+            </button>
+            <button
+              onClick={() => setActiveTab('dream')}
+              className={`px-6 py-3 rounded-md text-lg transition-all ${
+                activeTab === 'dream'
+                  ? 'bg-primary text-black'
+                  : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+              style={{ fontFamily: "'Cinzel', serif" }}
+            >
+              Dream Blog
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* Blog Posts */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="space-y-8">
-            {blogPosts.map((post, index) => (
+            {currentPosts.map((post, index) => (
               <article
                 key={index}
                 className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all"
