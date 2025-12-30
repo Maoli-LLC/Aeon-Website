@@ -6,7 +6,18 @@ export function LoginPage() {
       <nav className="border-b border-primary/20 bg-black/95 backdrop-blur-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
-            <Link to="/" className="flex items-center">
+            <Link to="/" className="flex items-center gap-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" className="w-10 h-10">
+                <defs>
+                  <linearGradient id="goldLogo" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style={{ stopColor: '#FFD700' }} />
+                    <stop offset="50%" style={{ stopColor: '#FFC125' }} />
+                    <stop offset="100%" style={{ stopColor: '#DAA520' }} />
+                  </linearGradient>
+                </defs>
+                <rect width="32" height="32" rx="4" fill="#0a0a0a" />
+                <text x="16" y="23" fontFamily="Georgia, serif" fontSize="16" fontWeight="bold" fill="url(#goldLogo)" textAnchor="middle">TA</text>
+              </svg>
               <span className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
                 Team Aeon
               </span>
