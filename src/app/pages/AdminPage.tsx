@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useUpload } from '@/hooks/use-upload';
 import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment } from '@shared/schema';
 
 type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers' | 'comments';
@@ -105,6 +106,19 @@ function BlogsSection() {
   const [showForm, setShowForm] = useState(false);
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setFormData(prev => ({ ...prev, imageUrl: response.objectPath }));
+    },
+  });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadFile(file);
+    }
+  };
 
   useEffect(() => {
     fetchPosts();
@@ -192,14 +206,43 @@ function BlogsSection() {
             />
           </div>
           <div>
-            <label className="block text-primary mb-2">Image URL (optional)</label>
-            <input
-              type="url"
-              placeholder="https://example.com/image.jpg"
-              value={formData.imageUrl}
-              onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
-            />
+            <label className="block text-primary mb-2">Image (optional)</label>
+            <div className="flex items-center gap-4">
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                onChange={handleImageUpload}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 disabled:opacity-50"
+              >
+                {isUploading ? 'Uploading...' : 'Choose Image'}
+              </button>
+              {formData.imageUrl && (
+                <div className="flex items-center gap-2">
+                  <span className="text-green-500 text-sm">Image uploaded</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, imageUrl: '' })}
+                    className="text-red-500 text-sm hover:underline"
+                  >
+                    Remove
+                  </button>
+                </div>
+              )}
+            </div>
+            {formData.imageUrl && (
+              <img 
+                src={formData.imageUrl} 
+                alt="Preview" 
+                className="mt-2 max-h-32 rounded-md border border-primary/20"
+              />
+            )}
           </div>
           <div>
             <label className="block text-primary mb-2">Content (optional)</label>

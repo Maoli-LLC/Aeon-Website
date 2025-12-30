@@ -1,5 +1,6 @@
 import express from "express";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
@@ -12,6 +13,7 @@ const OWNER_EMAIL = process.env.OWNER_EMAIL || "";
 async function main() {
   await setupAuth(app);
   registerAuthRoutes(app);
+  registerObjectStorageRoutes(app);
 
   // Middleware to check if user is owner
   const isOwner: express.RequestHandler = async (req: any, res, next) => {
