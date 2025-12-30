@@ -1,6 +1,6 @@
 import { Link, Outlet } from 'react-router-dom';
 import { Menu, X, User, LogOut } from 'lucide-react';
-import { useState, FormEvent } from 'react';
+import { useState, useEffect, FormEvent } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
 
@@ -8,7 +8,24 @@ export function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [subscribeEmail, setSubscribeEmail] = useState('');
   const [subscribing, setSubscribing] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetch('/api/admin/check')
+        .then(res => {
+          if (res.ok) {
+            setIsOwner(true);
+          } else {
+            setIsOwner(false);
+          }
+        })
+        .catch(() => setIsOwner(false));
+    } else {
+      setIsOwner(false);
+    }
+  }, [isAuthenticated]);
 
   const handleSubscribe = async (e: FormEvent) => {
     e.preventDefault();
@@ -74,13 +91,16 @@ export function Layout() {
               {!isLoading && (
                 isAuthenticated ? (
                   <div className="flex items-center gap-4">
-                    <Link
-                      to="/admin"
-                      className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
-                    >
-                      <User size={18} />
-                      <span>{user?.firstName || 'Dashboard'}</span>
-                    </Link>
+                    {isOwner && (
+                      <Link
+                        to="/admin"
+                        className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                      >
+                        <User size={18} />
+                        <span>Dashboard</span>
+                      </Link>
+                    )}
+                    <span className="text-white/80">{user?.firstName || 'User'}</span>
                     <a
                       href="/api/logout"
                       className="flex items-center gap-1 text-white/60 hover:text-white transition-colors text-sm"
@@ -127,14 +147,17 @@ export function Layout() {
                 {!isLoading && (
                   isAuthenticated ? (
                     <>
-                      <Link
-                        to="/admin"
-                        className="flex items-center gap-2 text-primary"
-                        onClick={() => setMobileMenuOpen(false)}
-                      >
-                        <User size={18} />
-                        <span>{user?.firstName || 'Dashboard'}</span>
-                      </Link>
+                      {isOwner && (
+                        <Link
+                          to="/admin"
+                          className="flex items-center gap-2 text-primary"
+                          onClick={() => setMobileMenuOpen(false)}
+                        >
+                          <User size={18} />
+                          <span>Dashboard</span>
+                        </Link>
+                      )}
+                      <span className="text-white/80">{user?.firstName || 'User'}</span>
                       <a
                         href="/api/logout"
                         className="flex items-center gap-2 text-white/60"
