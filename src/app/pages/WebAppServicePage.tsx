@@ -230,7 +230,7 @@ export function WebAppServicePage() {
               designed to reflect your unique vision and serve your audience.
             </p>
             <p className="text-white/90 leading-relaxed">
-              Your investment ensures a product that truly represents you and your creative purpose.
+              Your commission ensures a product that truly represents you and your creative purpose.
             </p>
           </div>
         </div>
