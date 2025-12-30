@@ -762,6 +762,11 @@ async function main() {
           </div>
           ` : ''}
           
+          <div style="background-color: #2a2a2a; padding: 20px; margin: 25px 0; border-radius: 4px;">
+            <p style="font-size: 14px; color: #ccc; margin: 0 0 10px 0;"><strong style="color: #d4af37;">Hosting:</strong> $25/month for reliable hosting and maintenance</p>
+            <p style="font-size: 14px; color: #999; margin: 0;">Additional upgrades and feature additions can be commissioned separately as your project evolves.</p>
+          </div>
+          
           <p style="font-size: 16px; line-height: 1.8;">If you have any questions or would like to discuss the project further, simply reply to this email.</p>
           
           <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
