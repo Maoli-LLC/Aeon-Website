@@ -1,9 +1,11 @@
 import { Link, Outlet } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User, LogOut } from 'lucide-react';
 import { useState } from 'react';
+import { useAuth } from '@/hooks/use-auth';
 
 export function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, isAuthenticated, isLoading } = useAuth();
 
   const navigationLinks = [
     { name: 'Home', path: '/' },
@@ -37,6 +39,34 @@ export function Layout() {
                   {link.name}
                 </Link>
               ))}
+              
+              {/* Auth Button */}
+              {!isLoading && (
+                isAuthenticated ? (
+                  <div className="flex items-center gap-4">
+                    <Link
+                      to="/admin"
+                      className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <User size={18} />
+                      <span>{user?.firstName || 'Dashboard'}</span>
+                    </Link>
+                    <a
+                      href="/api/logout"
+                      className="flex items-center gap-1 text-white/60 hover:text-white transition-colors text-sm"
+                    >
+                      <LogOut size={16} />
+                    </a>
+                  </div>
+                ) : (
+                  <a
+                    href="/api/login"
+                    className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
+                  >
+                    Sign In
+                  </a>
+                )
+              )}
             </div>
 
             {/* Mobile Menu Button */}
@@ -62,6 +92,36 @@ export function Layout() {
                     {link.name}
                   </Link>
                 ))}
+                
+                {/* Mobile Auth */}
+                {!isLoading && (
+                  isAuthenticated ? (
+                    <>
+                      <Link
+                        to="/admin"
+                        className="flex items-center gap-2 text-primary"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <User size={18} />
+                        <span>{user?.firstName || 'Dashboard'}</span>
+                      </Link>
+                      <a
+                        href="/api/logout"
+                        className="flex items-center gap-2 text-white/60"
+                      >
+                        <LogOut size={18} />
+                        <span>Sign Out</span>
+                      </a>
+                    </>
+                  ) : (
+                    <a
+                      href="/api/login"
+                      className="inline-block px-4 py-2 bg-primary text-black rounded-md text-center"
+                    >
+                      Sign In
+                    </a>
+                  )
+                )}
               </div>
             </div>
           )}
