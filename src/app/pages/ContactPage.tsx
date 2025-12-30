@@ -1,6 +1,30 @@
+import { useState } from 'react';
 import { Mail } from 'lucide-react';
 
 export function ContactPage() {
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [subscribeSubmitting, setSubscribeSubmitting] = useState(false);
+  const [subscribed, setSubscribed] = useState(false);
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubscribeSubmitting(true);
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name }),
+      });
+      if (res.ok) {
+        setSubscribed(true);
+        setEmail('');
+        setName('');
+      }
+    } catch {}
+    setSubscribeSubmitting(false);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -112,13 +136,59 @@ export function ContactPage() {
         </div>
       </section>
 
+      {/* Newsletter Signup */}
+      <section className="py-20">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl mb-6 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+            Stay Connected
+          </h2>
+          <p className="text-center text-muted-foreground mb-8">
+            Subscribe to receive updates on new transmissions, music releases, and insights.
+          </p>
+          
+          {subscribed ? (
+            <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
+              <h3 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Welcome!</h3>
+              <p className="text-white/90">You have been added to our list. Thank you for connecting.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubscribe} className="bg-card border border-primary/20 rounded-lg p-8 space-y-4">
+              <div>
+                <label className="block text-primary mb-2">Your Name (Optional)</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-primary mb-2">Your Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={subscribeSubmitting}
+                className="w-full px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {subscribeSubmitting ? 'Subscribing...' : 'Subscribe'}
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
+
       {/* Privacy Note */}
       <section className="py-20 bg-secondary">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p className="text-sm text-muted-foreground">
-            <strong className="text-primary">Privacy Notice:</strong> Figma Make is not meant for collecting PII
-            or securing sensitive data. All communications are handled with respect and confidentiality, but please
-            be mindful of the information you share.
+            <strong className="text-primary">Privacy Notice:</strong> Your information is handled with respect and confidentiality.
           </p>
         </div>
       </section>

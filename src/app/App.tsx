@@ -8,6 +8,7 @@ import { StorePage } from './pages/StorePage';
 import { ContactPage } from './pages/ContactPage';
 import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
+import { AdminPage } from './pages/AdminPage';
 import '../styles/fonts.css';
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
         </Route>
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </BrowserRouter>
   );

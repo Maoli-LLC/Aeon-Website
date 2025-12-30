@@ -1,6 +1,36 @@
+import { useState } from 'react';
 import { Moon, Sparkles } from 'lucide-react';
 
 export function DreamLatticePage() {
+  const [formData, setFormData] = useState({ name: '', email: '', dreamDescription: '' });
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setError('');
+    
+    try {
+      const res = await fetch('/api/dream-requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+      
+      if (res.ok) {
+        setSubmitted(true);
+        setFormData({ name: '', email: '', dreamDescription: '' });
+      } else {
+        setError('Failed to submit. Please try again.');
+      }
+    } catch {
+      setError('Failed to submit. Please try again.');
+    }
+    setSubmitting(false);
+  };
+
   return (
     <div>
       {/* Header */}
@@ -151,21 +181,63 @@ export function DreamLatticePage() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* Dream Submission Form */}
       <section className="py-20 bg-secondary">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl mb-6 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-            Ready to Explore Your Dreams?
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8">
-            Send your dream to us and receive your interpretation within 24 hours.
-          </p>
-          <a
-            href="/contact"
-            className="inline-block px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
-          >
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl mb-6 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
             Submit Your Dream
-          </a>
+          </h2>
+          <p className="text-xl text-muted-foreground mb-8 text-center">
+            Share your dream with us and receive your interpretation within 24 hours.
+          </p>
+          
+          {submitted ? (
+            <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
+              <h3 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Thank You!</h3>
+              <p className="text-white/90">Your dream has been submitted. We will send your interpretation within 24 hours.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="bg-card border border-primary/20 rounded-lg p-8 space-y-6">
+              <div>
+                <label className="block text-primary mb-2">Your Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-primary mb-2">Your Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={e => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-primary mb-2">Describe Your Dream</label>
+                <textarea
+                  value={formData.dreamDescription}
+                  onChange={e => setFormData({ ...formData, dreamDescription: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-48"
+                  placeholder="Share as much detail as you remember..."
+                  required
+                />
+              </div>
+              {error && <p className="text-red-400 text-center">{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {submitting ? 'Submitting...' : 'Submit Your Dream'}
+              </button>
+            </form>
+          )}
         </div>
       </section>
     </div>
