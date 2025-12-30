@@ -96,3 +96,24 @@ export const scheduledEmails = pgTable("scheduled_emails", {
 
 export type ScheduledEmail = typeof scheduledEmails.$inferSelect;
 export type InsertScheduledEmail = typeof scheduledEmails.$inferInsert;
+
+// Website/App creation service requests
+export const webAppRequests = pgTable("webapp_requests", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  projectType: varchar("project_type", { length: 50 }).notNull(), // 'website' or 'app'
+  description: text("description").notNull(),
+  functionality: text("functionality").notNull(),
+  colorPreferences: varchar("color_preferences", { length: 500 }),
+  exampleSites: text("example_sites"),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, quoted, in_progress, completed, archived
+  quoteResponse: text("quote_response"),
+  stripePaymentLink: varchar("stripe_payment_link", { length: 500 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type WebAppRequest = typeof webAppRequests.$inferSelect;
+export type InsertWebAppRequest = typeof webAppRequests.$inferInsert;
