@@ -223,12 +223,18 @@ export function BlogPage() {
         <section className="py-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="prose prose-invert max-w-none mb-12">
-              <p className="text-white/90 leading-relaxed text-xl mb-8 border-l-4 border-primary/40 pl-4">
-                {selectedPost.excerpt}
-              </p>
-              {selectedPost.content && (
-                <div className="mt-8">
-                  {formatContent(selectedPost.content)}
+              {selectedPost.content ? (
+                <>
+                  <p className="text-white/90 leading-relaxed text-xl mb-8 border-l-4 border-primary/40 pl-4">
+                    {truncateText(selectedPost.excerpt, 200)}
+                  </p>
+                  <div className="mt-8">
+                    {formatContent(selectedPost.content)}
+                  </div>
+                </>
+              ) : (
+                <div>
+                  {formatContent(selectedPost.excerpt)}
                 </div>
               )}
             </div>
