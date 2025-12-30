@@ -333,17 +333,17 @@ export function BlogPage() {
             </div>
 
             {/* Previous/Next Navigation */}
-            <div className="border-t border-primary/20 pt-8 mt-12">
-              <div className="flex justify-between items-center">
+            <div className="border-t border-primary/20 pt-12 mt-12">
+              <div className="grid grid-cols-2 gap-4">
                 {prevPost ? (
                   <button
                     onClick={() => viewPost(prevPost)}
-                    className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                    className="flex items-center gap-4 p-6 bg-card border border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group"
                   >
-                    <span>←</span>
-                    <div className="text-left">
-                      <p className="text-xs text-muted-foreground">Previous</p>
-                      <p className="text-sm">{truncateText(prevPost.title, 30)}</p>
+                    <span className="text-3xl text-primary group-hover:scale-110 transition-transform">←</span>
+                    <div>
+                      <p className="text-sm text-primary font-semibold uppercase tracking-wide mb-1">Previous Post</p>
+                      <p className="text-white text-lg">{truncateText(prevPost.title, 40)}</p>
                     </div>
                   </button>
                 ) : (
@@ -352,13 +352,13 @@ export function BlogPage() {
                 {nextPost ? (
                   <button
                     onClick={() => viewPost(nextPost)}
-                    className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors text-right"
+                    className="flex items-center justify-end gap-4 p-6 bg-card border border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-right group"
                   >
                     <div>
-                      <p className="text-xs text-muted-foreground">Next</p>
-                      <p className="text-sm">{truncateText(nextPost.title, 30)}</p>
+                      <p className="text-sm text-primary font-semibold uppercase tracking-wide mb-1">Next Post</p>
+                      <p className="text-white text-lg">{truncateText(nextPost.title, 40)}</p>
                     </div>
-                    <span>→</span>
+                    <span className="text-3xl text-primary group-hover:scale-110 transition-transform">→</span>
                   </button>
                 ) : (
                   <div />
