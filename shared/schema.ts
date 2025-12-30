@@ -7,8 +7,9 @@ import { users } from "./models/auth";
 export const blogPosts = pgTable("blog_posts", {
   id: serial("id").primaryKey(),
   title: varchar("title", { length: 255 }).notNull(),
-  excerpt: text("excerpt").notNull(),
+  excerpt: text("excerpt").notNull(), // Used as subject/summary
   content: text("content"),
+  imageUrl: varchar("image_url", { length: 500 }),
   category: varchar("category", { length: 50 }).notNull(), // 'sahlien' or 'dream'
   published: boolean("published").default(false),
   createdAt: timestamp("created_at").defaultNow(),

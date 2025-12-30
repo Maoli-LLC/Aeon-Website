@@ -104,7 +104,7 @@ function BlogsSection() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
-  const [formData, setFormData] = useState({ title: '', excerpt: '', content: '', category: 'sahlien', published: false });
+  const [formData, setFormData] = useState({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false });
 
   useEffect(() => {
     fetchPosts();
@@ -130,7 +130,7 @@ function BlogsSection() {
     
     setShowForm(false);
     setEditingPost(null);
-    setFormData({ title: '', excerpt: '', content: '', category: 'sahlien', published: false });
+    setFormData({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false });
     fetchPosts();
   };
 
@@ -147,6 +147,7 @@ function BlogsSection() {
       title: post.title,
       excerpt: post.excerpt,
       content: post.content || '',
+      imageUrl: post.imageUrl || '',
       category: post.category,
       published: post.published || false,
     });
@@ -160,7 +161,7 @@ function BlogsSection() {
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Blog Posts</h2>
         <button
-          onClick={() => { setShowForm(true); setEditingPost(null); setFormData({ title: '', excerpt: '', content: '', category: 'sahlien', published: false }); }}
+          onClick={() => { setShowForm(true); setEditingPost(null); setFormData({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false }); }}
           className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
         >
           New Post
@@ -169,44 +170,69 @@ function BlogsSection() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-card border border-primary/20 rounded-lg p-6 mb-6 space-y-4">
-          <input
-            type="text"
-            placeholder="Title"
-            value={formData.title}
-            onChange={e => setFormData({ ...formData, title: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
-            required
-          />
-          <textarea
-            placeholder="Excerpt"
-            value={formData.excerpt}
-            onChange={e => setFormData({ ...formData, excerpt: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-24"
-            required
-          />
-          <textarea
-            placeholder="Content (optional)"
-            value={formData.content}
-            onChange={e => setFormData({ ...formData, content: e.target.value })}
-            className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-48"
-          />
-          <div className="flex gap-4">
-            <select
-              value={formData.category}
-              onChange={e => setFormData({ ...formData, category: e.target.value })}
-              className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
-            >
-              <option value="sahlien">Sahlien Blog</option>
-              <option value="dream">Dream Blog</option>
-            </select>
-            <label className="flex items-center gap-2 text-white">
-              <input
-                type="checkbox"
-                checked={formData.published}
-                onChange={e => setFormData({ ...formData, published: e.target.checked })}
-              />
-              Published
-            </label>
+          <div>
+            <label className="block text-primary mb-2">Title</label>
+            <input
+              type="text"
+              placeholder="Enter post title"
+              value={formData.title}
+              onChange={e => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-primary mb-2">Subject</label>
+            <textarea
+              placeholder="Brief summary or subject of the post"
+              value={formData.excerpt}
+              onChange={e => setFormData({ ...formData, excerpt: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-24"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-primary mb-2">Image URL (optional)</label>
+            <input
+              type="url"
+              placeholder="https://example.com/image.jpg"
+              value={formData.imageUrl}
+              onChange={e => setFormData({ ...formData, imageUrl: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+            />
+          </div>
+          <div>
+            <label className="block text-primary mb-2">Content (optional)</label>
+            <textarea
+              placeholder="Full blog post content"
+              value={formData.content}
+              onChange={e => setFormData({ ...formData, content: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-48"
+            />
+          </div>
+          <div className="flex gap-4 flex-wrap">
+            <div>
+              <label className="block text-primary mb-2">Category</label>
+              <select
+                value={formData.category}
+                onChange={e => setFormData({ ...formData, category: e.target.value })}
+                className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+              >
+                <option value="sahlien">Sahlien Blog</option>
+                <option value="dream">Dream Blog</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-primary mb-2">Status</label>
+              <select
+                value={formData.published ? 'publish' : 'draft'}
+                onChange={e => setFormData({ ...formData, published: e.target.value === 'publish' })}
+                className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+              >
+                <option value="draft">Draft</option>
+                <option value="publish">Publish</option>
+              </select>
+            </div>
           </div>
           <div className="flex gap-4">
             <button type="submit" className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90">
