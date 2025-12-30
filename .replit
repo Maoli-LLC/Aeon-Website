@@ -50,3 +50,8 @@ externalPort = 3002
 deploymentTarget = "static"
 build = ["npm", "run", "build"]
 publicDir = "dist"
+
+[userenv]
+
+[userenv.shared]
+OWNER_EMAIL = "iamsahlien@gmail.com"

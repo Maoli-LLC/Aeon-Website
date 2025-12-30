@@ -11,6 +11,10 @@ app.use(express.json());
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL || "";
 
+if (!OWNER_EMAIL) {
+  console.warn("WARNING: OWNER_EMAIL environment variable is not set. Admin access will be disabled.");
+}
+
 async function main() {
   await setupAuth(app);
   registerAuthRoutes(app);
