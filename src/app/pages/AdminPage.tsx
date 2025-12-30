@@ -720,6 +720,20 @@ function SubscribersSection() {
   );
 }
 
+interface ScheduledEmail {
+  id: number;
+  type: string;
+  postId: number | null;
+  title: string | null;
+  description: string | null;
+  imageUrl: string | null;
+  linkDestination: string | null;
+  linkedPostId: number | null;
+  scheduledFor: string;
+  status: string;
+  createdAt: string;
+}
+
 function EmailMarketingSection() {
   const [emailType, setEmailType] = useState<'blog' | 'product'>('blog');
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
@@ -732,6 +746,10 @@ function EmailMarketingSection() {
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
   const [subscriberCount, setSubscriberCount] = useState(0);
+  const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now');
+  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -740,13 +758,20 @@ function EmailMarketingSection() {
   });
 
   useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = () => {
     fetch('/api/admin/blog-posts')
       .then(res => res.json())
       .then(data => setBlogPosts(data.filter((p: BlogPost) => p.published)));
     fetch('/api/admin/subscribers')
       .then(res => res.json())
       .then(data => setSubscriberCount(data.length));
-  }, []);
+    fetch('/api/admin/scheduled-emails')
+      .then(res => res.json())
+      .then(data => setScheduledEmails(data));
+  };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -760,7 +785,7 @@ function EmailMarketingSection() {
     setSendResult(null);
     
     try {
-      const payload = emailType === 'blog' 
+      const basePayload = emailType === 'blog' 
         ? { type: 'blog', postId: selectedPostId }
         : { 
             type: 'product', 
@@ -771,28 +796,75 @@ function EmailMarketingSection() {
             linkedPostId: linkDestination === 'blog' ? selectedBlogForLink : null
           };
       
-      const res = await fetch('/api/admin/send-marketing-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      
-      const data = await res.json();
-      if (res.ok) {
-        setSendResult({ success: true, message: `Email sent successfully to ${data.sentCount} subscribers!` });
-        if (emailType === 'product') {
-          setProductTitle('');
-          setProductDescription('');
-          setProductImageUrl('');
+      if (sendMode === 'schedule') {
+        if (!scheduledDate || !scheduledTime) {
+          setSendResult({ success: false, message: 'Please select a date and time for scheduling' });
+          setSending(false);
+          return;
+        }
+        
+        const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`);
+        if (scheduledFor <= new Date()) {
+          setSendResult({ success: false, message: 'Scheduled time must be in the future' });
+          setSending(false);
+          return;
+        }
+        
+        const res = await fetch('/api/admin/schedule-marketing-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...basePayload, scheduledFor: scheduledFor.toISOString() }),
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+          setSendResult({ success: true, message: `Email scheduled for ${scheduledFor.toLocaleString()}!` });
+          setScheduledDate('');
+          setScheduledTime('');
+          fetchData();
+          if (emailType === 'product') {
+            setProductTitle('');
+            setProductDescription('');
+            setProductImageUrl('');
+          }
+        } else {
+          setSendResult({ success: false, message: data.error || 'Failed to schedule email' });
         }
       } else {
-        setSendResult({ success: false, message: data.error || 'Failed to send emails' });
+        const res = await fetch('/api/admin/send-marketing-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(basePayload),
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+          setSendResult({ success: true, message: `Email sent successfully to ${data.sentCount} subscribers!` });
+          if (emailType === 'product') {
+            setProductTitle('');
+            setProductDescription('');
+            setProductImageUrl('');
+          }
+        } else {
+          setSendResult({ success: false, message: data.error || 'Failed to send emails' });
+        }
       }
     } catch (error) {
-      setSendResult({ success: false, message: 'An error occurred while sending emails' });
+      setSendResult({ success: false, message: 'An error occurred' });
     }
     
     setSending(false);
+  };
+
+  const cancelScheduledEmail = async (id: number) => {
+    if (!confirm('Are you sure you want to cancel this scheduled email?')) return;
+    
+    try {
+      await fetch(`/api/admin/scheduled-emails/${id}`, { method: 'DELETE' });
+      setScheduledEmails(scheduledEmails.filter(e => e.id !== id));
+    } catch (error) {
+      console.error('Failed to cancel scheduled email:', error);
+    }
   };
 
   const canSend = emailType === 'blog' 
@@ -953,6 +1025,52 @@ function EmailMarketingSection() {
           </div>
         )}
         
+        <div className="mt-8 pt-6 border-t border-primary/20">
+          <label className="block text-primary mb-3">When to Send</label>
+          <div className="flex gap-4 mb-4">
+            <button
+              onClick={() => setSendMode('now')}
+              className={`px-6 py-3 rounded-md transition-all ${
+                sendMode === 'now' ? 'bg-primary text-black' : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+            >
+              Send Now
+            </button>
+            <button
+              onClick={() => setSendMode('schedule')}
+              className={`px-6 py-3 rounded-md transition-all ${
+                sendMode === 'schedule' ? 'bg-primary text-black' : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+            >
+              Schedule for Later
+            </button>
+          </div>
+          
+          {sendMode === 'schedule' && (
+            <div className="flex gap-4 mt-4">
+              <div className="flex-1">
+                <label className="block text-muted-foreground text-sm mb-2">Date</label>
+                <input
+                  type="date"
+                  value={scheduledDate}
+                  onChange={e => setScheduledDate(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-muted-foreground text-sm mb-2">Time</label>
+                <input
+                  type="time"
+                  value={scheduledTime}
+                  onChange={e => setScheduledTime(e.target.value)}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        
         {sendResult && (
           <div className={`mt-6 px-4 py-3 rounded-md border ${
             sendResult.success 
@@ -969,10 +1087,45 @@ function EmailMarketingSection() {
             disabled={sending || !canSend}
             className="w-full px-6 py-4 bg-primary text-black rounded-md hover:bg-primary/90 disabled:opacity-50 transition-all text-lg font-medium"
           >
-            {sending ? 'Sending to all subscribers...' : `Send Email to ${subscriberCount} Subscribers`}
+            {sending 
+              ? (sendMode === 'schedule' ? 'Scheduling...' : 'Sending to all subscribers...') 
+              : (sendMode === 'schedule' 
+                  ? 'Schedule Email' 
+                  : `Send Email to ${subscriberCount} Subscribers`
+                )
+            }
           </button>
         </div>
       </div>
+      
+      {scheduledEmails.length > 0 && (
+        <div className="mt-8 bg-card border border-primary/20 rounded-lg p-6">
+          <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Scheduled Emails</h3>
+          <div className="space-y-3">
+            {scheduledEmails.map(email => (
+              <div key={email.id} className="flex items-center justify-between bg-secondary rounded-lg p-4">
+                <div>
+                  <p className="text-white font-medium">
+                    {email.type === 'blog' 
+                      ? `Blog Post: ${blogPosts.find(p => p.id === email.postId)?.title || `Post #${email.postId}`}` 
+                      : `Product: ${email.title}`
+                    }
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    Scheduled for: {new Date(email.scheduledFor).toLocaleString()}
+                  </p>
+                </div>
+                <button
+                  onClick={() => cancelScheduledEmail(email.id)}
+                  className="px-4 py-2 border border-red-500 text-red-400 rounded-md hover:bg-red-500/20 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

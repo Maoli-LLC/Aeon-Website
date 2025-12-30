@@ -78,3 +78,21 @@ export const blogComments = pgTable("blog_comments", {
 
 export type BlogComment = typeof blogComments.$inferSelect;
 export type InsertBlogComment = typeof blogComments.$inferInsert;
+
+// Scheduled marketing emails
+export const scheduledEmails = pgTable("scheduled_emails", {
+  id: serial("id").primaryKey(),
+  type: varchar("type", { length: 50 }).notNull(), // 'blog' or 'product'
+  postId: integer("post_id"), // For blog type
+  title: varchar("title", { length: 255 }), // For product type
+  description: text("description"), // For product type
+  imageUrl: varchar("image_url", { length: 500 }), // For product type
+  linkDestination: varchar("link_destination", { length: 50 }), // 'store' or 'blog'
+  linkedPostId: integer("linked_post_id"), // For blog link
+  scheduledFor: timestamp("scheduled_for").notNull(),
+  status: varchar("status", { length: 50 }).default("pending"), // pending, sent, cancelled
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ScheduledEmail = typeof scheduledEmails.$inferSelect;
+export type InsertScheduledEmail = typeof scheduledEmails.$inferInsert;

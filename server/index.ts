@@ -3,8 +3,8 @@ import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments } from "@shared/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails } from "@shared/schema";
+import { eq, desc, and, lte } from "drizzle-orm";
 import { sendEmail } from "./gmail";
 
 const app = express();
@@ -421,6 +421,60 @@ async function main() {
     }
   });
 
+  // Schedule a marketing email
+  app.post("/api/admin/schedule-marketing-email", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { type, postId, title, description, imageUrl, linkDestination, linkedPostId, scheduledFor } = req.body;
+      
+      if (!scheduledFor) {
+        return res.status(400).json({ error: "Scheduled date is required" });
+      }
+
+      const [scheduled] = await db.insert(scheduledEmails).values({
+        type,
+        postId,
+        title,
+        description,
+        imageUrl,
+        linkDestination,
+        linkedPostId,
+        scheduledFor: new Date(scheduledFor),
+      }).returning();
+
+      res.json({ success: true, scheduled });
+    } catch (error) {
+      console.error("Error scheduling email:", error);
+      res.status(500).json({ error: "Failed to schedule email" });
+    }
+  });
+
+  // Get all scheduled emails
+  app.get("/api/admin/scheduled-emails", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const emails = await db.select().from(scheduledEmails)
+        .where(eq(scheduledEmails.status, "pending"))
+        .orderBy(scheduledEmails.scheduledFor);
+      res.json(emails);
+    } catch (error) {
+      console.error("Error fetching scheduled emails:", error);
+      res.status(500).json({ error: "Failed to fetch scheduled emails" });
+    }
+  });
+
+  // Cancel a scheduled email
+  app.delete("/api/admin/scheduled-emails/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.update(scheduledEmails)
+        .set({ status: "cancelled" })
+        .where(eq(scheduledEmails.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error cancelling scheduled email:", error);
+      res.status(500).json({ error: "Failed to cancel scheduled email" });
+    }
+  });
+
   // Get all dream requests
   app.get("/api/admin/dream-requests", isAuthenticated, isOwner, async (req, res) => {
     try {
@@ -654,6 +708,135 @@ async function main() {
       res.status(500).json({ message: "Failed to delete comment" });
     }
   });
+
+  // Background job to process scheduled emails (runs every minute)
+  async function processScheduledEmails() {
+    try {
+      const now = new Date();
+      const pendingEmails = await db.select().from(scheduledEmails)
+        .where(and(
+          eq(scheduledEmails.status, "pending"),
+          lte(scheduledEmails.scheduledFor, now)
+        ));
+
+      for (const scheduled of pendingEmails) {
+        try {
+          // Get subscribers who haven't opted out
+          const allSubscribers = await db.select().from(emailSubscribers);
+          const subscribers = allSubscribers.filter(s => !s.marketingOptOut);
+          
+          if (subscribers.length === 0) {
+            console.log(`No subscribers for scheduled email ${scheduled.id}`);
+            await db.update(scheduledEmails)
+              .set({ status: "sent" })
+              .where(eq(scheduledEmails.id, scheduled.id));
+            continue;
+          }
+
+          const siteUrl = process.env.REPLIT_DEV_DOMAIN 
+            ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+            : "https://team-aeon.replit.app";
+
+          // Generate tokens for subscribers who don't have one
+          for (const subscriber of subscribers) {
+            if (!subscriber.unsubscribeToken) {
+              const token = crypto.randomBytes(32).toString('hex');
+              await db.update(emailSubscribers)
+                .set({ unsubscribeToken: token })
+                .where(eq(emailSubscribers.id, subscriber.id));
+              subscriber.unsubscribeToken = token;
+            }
+          }
+
+          let subject = "";
+          let sentCount = 0;
+
+          for (const subscriber of subscribers) {
+            const unsubscribeUrl = `${siteUrl}/api/unsubscribe?token=${subscriber.unsubscribeToken}`;
+            let htmlBody = "";
+
+            if (scheduled.type === "blog" && scheduled.postId) {
+              const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, scheduled.postId));
+              if (!post) continue;
+              
+              subject = `New from Team Aeon: ${post.title}`;
+              const blogUrl = `${siteUrl}/blog?post=${post.id}`;
+              
+              htmlBody = `
+                <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+                  <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+                  <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px;">${post.title}</h2>
+                  ${post.imageUrl ? `<img src="${post.imageUrl}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
+                  <p style="font-size: 16px; line-height: 1.8; color: #ccc;">${post.excerpt}</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${blogUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Read More</a>
+                  </div>
+                  <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+                  <p style="font-size: 12px; color: #666; text-align: center;">
+                    You're receiving this because you subscribed to Team Aeon updates.<br>
+                    <a href="${unsubscribeUrl}" style="color: #888;">Unsubscribe</a>
+                  </p>
+                </div>
+              `;
+            } else if (scheduled.type === "product") {
+              subject = `New Product: ${scheduled.title}`;
+              
+              let ctaUrl = `${siteUrl}/store`;
+              let ctaText = "Shop Now";
+              
+              if (scheduled.linkDestination === "blog" && scheduled.linkedPostId) {
+                ctaUrl = `${siteUrl}/blog?post=${scheduled.linkedPostId}`;
+                ctaText = "Read More";
+              }
+              
+              htmlBody = `
+                <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+                  <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+                  <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px; text-align: center;">New Arrival</h2>
+                  ${scheduled.imageUrl ? `<img src="${scheduled.imageUrl}" alt="${scheduled.title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
+                  <h3 style="color: #fff; font-size: 22px; margin-bottom: 10px; text-align: center;">${scheduled.title}</h3>
+                  <p style="font-size: 16px; line-height: 1.8; color: #ccc; text-align: center;">${scheduled.description}</p>
+                  <div style="text-align: center; margin: 30px 0;">
+                    <a href="${ctaUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">${ctaText}</a>
+                  </div>
+                  <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+                  <p style="font-size: 12px; color: #666; text-align: center;">
+                    You're receiving this because you subscribed to Team Aeon updates.<br>
+                    <a href="${unsubscribeUrl}" style="color: #888;">Unsubscribe</a>
+                  </p>
+                </div>
+              `;
+            }
+
+            if (htmlBody) {
+              try {
+                await sendEmail(subscriber.email, subject, htmlBody);
+                sentCount++;
+              } catch (emailError) {
+                console.error(`Failed to send scheduled email to ${subscriber.email}:`, emailError);
+              }
+            }
+          }
+
+          // Mark as sent
+          await db.update(scheduledEmails)
+            .set({ status: "sent" })
+            .where(eq(scheduledEmails.id, scheduled.id));
+          
+          console.log(`Sent scheduled email ${scheduled.id} to ${sentCount} subscribers`);
+        } catch (error) {
+          console.error(`Error processing scheduled email ${scheduled.id}:`, error);
+        }
+      }
+    } catch (error) {
+      console.error("Error in scheduled email processor:", error);
+    }
+  }
+
+  // Run the scheduler every minute
+  setInterval(processScheduledEmails, 60000);
+  // Also run once on startup after a short delay
+  setTimeout(processScheduledEmails, 5000);
 
   const PORT = 3001;
   app.listen(PORT, "0.0.0.0", () => {
