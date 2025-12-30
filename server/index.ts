@@ -10,6 +10,16 @@ import { eq, desc, and, lte } from "drizzle-orm";
 import { sendEmail } from "./gmail";
 
 const app = express();
+
+// Force redirect from non-www to www in production
+app.use((req, res, next) => {
+  const host = req.headers['x-forwarded-host'] as string || req.hostname;
+  if (process.env.NODE_ENV === 'production' && host === 'iamsahlien.com') {
+    return res.redirect(301, `https://www.iamsahlien.com${req.originalUrl}`);
+  }
+  next();
+});
+
 app.use(express.json());
 
 const OWNER_EMAIL = process.env.OWNER_EMAIL || "";
