@@ -139,7 +139,24 @@ export function BlogPage() {
   };
 
   const formatContent = (content: string) => {
-    const paragraphs = content.split(/\n\n+/);
+    let paragraphs: string[];
+    
+    if (content.includes('\n\n')) {
+      paragraphs = content.split(/\n\n+/);
+    } else if (content.includes('\n')) {
+      paragraphs = content.split(/\n/);
+    } else {
+      const sentences = content.match(/[^.!?]+[.!?]+/g) || [content];
+      paragraphs = [];
+      let currentPara = '';
+      sentences.forEach((sentence, i) => {
+        currentPara += sentence;
+        if ((i + 1) % 3 === 0 || i === sentences.length - 1) {
+          paragraphs.push(currentPara.trim());
+          currentPara = '';
+        }
+      });
+    }
     
     return paragraphs.map((paragraph, index) => {
       const trimmed = paragraph.trim();
@@ -177,15 +194,9 @@ export function BlogPage() {
         );
       }
       
-      const lines = trimmed.split('\n');
       return (
         <p key={index} className="text-white/80 leading-relaxed text-lg mb-6">
-          {lines.map((line, i) => (
-            <span key={i}>
-              {line}
-              {i < lines.length - 1 && <br />}
-            </span>
-          ))}
+          {trimmed}
         </p>
       );
     });
