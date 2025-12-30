@@ -133,6 +133,59 @@ export function BlogPage() {
     });
   };
 
+  const formatContent = (content: string) => {
+    const paragraphs = content.split(/\n\n+/);
+    
+    return paragraphs.map((paragraph, index) => {
+      const trimmed = paragraph.trim();
+      if (!trimmed) return null;
+      
+      const isHeading = (
+        (trimmed.length < 80 && trimmed.endsWith(':')) ||
+        (trimmed.length < 60 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed))
+      );
+      
+      const isList = trimmed.split('\n').every(line => 
+        /^[\-\*\•\d+\.\)]\s/.test(line.trim()) || line.trim() === ''
+      );
+      
+      if (isHeading) {
+        return (
+          <h3 
+            key={index} 
+            className="text-xl text-primary mt-8 mb-4 font-semibold"
+            style={{ fontFamily: "'Cinzel', serif" }}
+          >
+            {trimmed.replace(/:$/, '')}
+          </h3>
+        );
+      }
+      
+      if (isList) {
+        const items = trimmed.split('\n').filter(line => line.trim());
+        return (
+          <ul key={index} className="list-disc list-inside space-y-2 my-4 text-white/80">
+            {items.map((item, i) => (
+              <li key={i}>{item.replace(/^[\-\*\•\d+\.\)]\s*/, '')}</li>
+            ))}
+          </ul>
+        );
+      }
+      
+      const lines = trimmed.split('\n');
+      return (
+        <p key={index} className="text-white/80 leading-relaxed text-lg mb-6">
+          {lines.map((line, i) => (
+            <span key={i}>
+              {line}
+              {i < lines.length - 1 && <br />}
+            </span>
+          ))}
+        </p>
+      );
+    });
+  };
+
   if (selectedPost) {
     return (
       <div>
@@ -154,10 +207,12 @@ export function BlogPage() {
         <section className="py-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="prose prose-invert max-w-none mb-12">
-              <p className="text-white/90 leading-relaxed text-lg">{selectedPost.excerpt}</p>
+              <p className="text-white/90 leading-relaxed text-lg italic border-l-4 border-primary/40 pl-4 mb-8">
+                {selectedPost.excerpt}
+              </p>
               {selectedPost.content && (
-                <div className="mt-8 text-white/80 leading-relaxed whitespace-pre-wrap">
-                  {selectedPost.content}
+                <div className="mt-8">
+                  {formatContent(selectedPost.content)}
                 </div>
               )}
             </div>
