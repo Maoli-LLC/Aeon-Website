@@ -683,15 +683,21 @@ function SubscribersSection() {
 
   if (loading) return <p className="text-white">Loading...</p>;
 
+  const activeSubscribers = subscribers.filter(s => !s.marketingOptOut);
+  const optedOutSubscribers = subscribers.filter(s => s.marketingOptOut);
+
   return (
     <div>
-      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>Email Subscribers ({subscribers.length})</h2>
+      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>
+        Email Subscribers ({activeSubscribers.length} active, {optedOutSubscribers.length} unsubscribed)
+      </h2>
       <div className="bg-card border border-primary/20 rounded-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-secondary">
             <tr>
               <th className="text-left px-4 py-3 text-primary">Email</th>
               <th className="text-left px-4 py-3 text-primary">Name</th>
+              <th className="text-left px-4 py-3 text-primary">Status</th>
               <th className="text-left px-4 py-3 text-primary">Subscribed</th>
               <th className="text-left px-4 py-3 text-primary">Actions</th>
             </tr>
@@ -699,12 +705,19 @@ function SubscribersSection() {
           <tbody>
             {subscribers.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-4 py-3 text-white/80 text-center">No subscribers yet.</td>
+                <td colSpan={5} className="px-4 py-3 text-white/80 text-center">No subscribers yet.</td>
               </tr>
             ) : subscribers.map(sub => (
-              <tr key={sub.id} className="border-t border-primary/10">
+              <tr key={sub.id} className={`border-t border-primary/10 ${sub.marketingOptOut ? 'opacity-60' : ''}`}>
                 <td className="px-4 py-3 text-white">{sub.email}</td>
                 <td className="px-4 py-3 text-white">{sub.name || '-'}</td>
+                <td className="px-4 py-3">
+                  {sub.marketingOptOut ? (
+                    <span className="px-2 py-1 text-xs bg-red-500/20 text-red-400 rounded">Unsubscribed</span>
+                  ) : (
+                    <span className="px-2 py-1 text-xs bg-green-500/20 text-green-400 rounded">Active</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-muted-foreground">{new Date(sub.subscribedAt!).toLocaleDateString()}</td>
                 <td className="px-4 py-3">
                   <button
@@ -771,7 +784,7 @@ function EmailMarketingSection() {
       .then(data => setBlogPosts(data.filter((p: BlogPost) => p.published)));
     fetch('/api/admin/subscribers')
       .then(res => res.json())
-      .then(data => setSubscriberCount(data.length));
+      .then(data => setSubscriberCount(data.filter((s: any) => !s.marketingOptOut).length));
     fetch('/api/admin/scheduled-emails')
       .then(res => res.json())
       .then(data => setScheduledEmails(data));
