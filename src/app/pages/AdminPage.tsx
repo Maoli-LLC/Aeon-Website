@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { useUpload } from '@/hooks/use-upload';
+import { Calendar } from '@/app/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
+import { format } from 'date-fns';
 import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment } from '@shared/schema';
 
 type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers' | 'marketing' | 'comments';
@@ -747,8 +750,9 @@ function EmailMarketingSection() {
   const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now');
-  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledDate, setScheduledDate] = useState<Date | undefined>(undefined);
   const [scheduledTime, setScheduledTime] = useState('09:00');
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
@@ -803,7 +807,10 @@ function EmailMarketingSection() {
           return;
         }
         
-        const scheduledFor = new Date(`${scheduledDate}T${scheduledTime}`);
+        const [hours, minutes] = scheduledTime.split(':').map(Number);
+        const scheduledFor = new Date(scheduledDate);
+        scheduledFor.setHours(hours, minutes, 0, 0);
+        
         if (scheduledFor <= new Date()) {
           setSendResult({ success: false, message: 'Scheduled time must be in the future' });
           setSending(false);
@@ -819,8 +826,8 @@ function EmailMarketingSection() {
         const data = await res.json();
         if (res.ok) {
           setSendResult({ success: true, message: `Email scheduled for ${scheduledFor.toLocaleString()}!` });
-          setScheduledDate('');
-          setScheduledTime('');
+          setScheduledDate(undefined);
+          setScheduledTime('09:00');
           fetchData();
           if (emailType === 'product') {
             setProductTitle('');
@@ -1050,13 +1057,31 @@ function EmailMarketingSection() {
             <div className="flex gap-4 mt-4">
               <div className="flex-1">
                 <label className="block text-muted-foreground text-sm mb-2">Date</label>
-                <input
-                  type="date"
-                  value={scheduledDate}
-                  onChange={e => setScheduledDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
-                />
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white text-left flex items-center justify-between hover:border-primary/40"
+                    >
+                      {scheduledDate ? format(scheduledDate, 'PPP') : 'Pick a date'}
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0 bg-card border-primary/20" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={scheduledDate}
+                      onSelect={(date) => {
+                        setScheduledDate(date);
+                        setCalendarOpen(false);
+                      }}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="flex-1">
                 <label className="block text-muted-foreground text-sm mb-2">Time</label>
