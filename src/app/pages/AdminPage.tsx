@@ -64,6 +64,9 @@ export function AdminPage() {
           <h1 className="text-4xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Admin Dashboard</h1>
           <div className="flex items-center gap-4">
             <span className="text-white/80">Welcome, {user?.firstName || user?.email}</span>
+            <a href="/" className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10">
+              Back to Home
+            </a>
             <a href="/api/logout" className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10">
               Log Out
             </a>
