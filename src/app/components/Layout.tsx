@@ -219,6 +219,7 @@ export function Layout() {
               <h4 className="mb-4 text-primary">Services</h4>
               <ul className="space-y-2">
                 <li><Link to="/dream-lattice" className="text-muted-foreground hover:text-primary transition-colors">Dream Interpretation</Link></li>
+                <li><Link to="/music" className="text-muted-foreground hover:text-primary transition-colors">Music Creation</Link></li>
                 <li><Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">Contact</Link></li>
               </ul>
             </div>
