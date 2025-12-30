@@ -37,6 +37,8 @@ export function BlogPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [initialPostLoaded, setInitialPostLoaded] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const postsPerPage = 5;
 
   const filteredPosts = posts.filter(post => {
     if (!searchQuery.trim()) return true;
@@ -47,6 +49,20 @@ export function BlogPage() {
       (post.content && post.content.toLowerCase().includes(query))
     );
   });
+
+  const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+  const paginatedPosts = filteredPosts.slice(
+    (currentPage - 1) * postsPerPage,
+    currentPage * postsPerPage
+  );
+
+  const currentPostIndex = selectedPost ? posts.findIndex(p => p.id === selectedPost.id) : -1;
+  const prevPost = currentPostIndex > 0 ? posts[currentPostIndex - 1] : null;
+  const nextPost = currentPostIndex < posts.length - 1 ? posts[currentPostIndex + 1] : null;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetch(`/api/blog-posts?category=${activeTab}`)
@@ -315,6 +331,40 @@ export function BlogPage() {
                 </div>
               )}
             </div>
+
+            {/* Previous/Next Navigation */}
+            <div className="border-t border-primary/20 pt-8 mt-12">
+              <div className="flex justify-between items-center">
+                {prevPost ? (
+                  <button
+                    onClick={() => viewPost(prevPost)}
+                    className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors"
+                  >
+                    <span>←</span>
+                    <div className="text-left">
+                      <p className="text-xs text-muted-foreground">Previous</p>
+                      <p className="text-sm">{truncateText(prevPost.title, 30)}</p>
+                    </div>
+                  </button>
+                ) : (
+                  <div />
+                )}
+                {nextPost ? (
+                  <button
+                    onClick={() => viewPost(nextPost)}
+                    className="flex items-center gap-2 text-primary hover:text-primary/80 transition-colors text-right"
+                  >
+                    <div>
+                      <p className="text-xs text-muted-foreground">Next</p>
+                      <p className="text-sm">{truncateText(nextPost.title, 30)}</p>
+                    </div>
+                    <span>→</span>
+                  </button>
+                ) : (
+                  <div />
+                )}
+              </div>
+            </div>
           </div>
         </section>
       </div>
@@ -338,7 +388,7 @@ export function BlogPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center gap-4 mb-6">
             <button
-              onClick={() => { setActiveTab('sahlien'); setLoading(true); setSearchQuery(''); }}
+              onClick={() => { setActiveTab('sahlien'); setLoading(true); setSearchQuery(''); setCurrentPage(1); }}
               className={`px-6 py-3 rounded-md text-lg transition-all ${
                 activeTab === 'sahlien'
                   ? 'bg-primary text-black'
@@ -349,7 +399,7 @@ export function BlogPage() {
               Sahlien Blog
             </button>
             <button
-              onClick={() => { setActiveTab('dream'); setLoading(true); setSearchQuery(''); }}
+              onClick={() => { setActiveTab('dream'); setLoading(true); setSearchQuery(''); setCurrentPage(1); }}
               className={`px-6 py-3 rounded-md text-lg transition-all ${
                 activeTab === 'dream'
                   ? 'bg-primary text-black'
@@ -426,7 +476,7 @@ export function BlogPage() {
                   Found {filteredPosts.length} post{filteredPosts.length !== 1 ? 's' : ''} matching "{searchQuery}"
                 </p>
               )}
-              {filteredPosts.map(post => (
+              {paginatedPosts.map(post => (
                 <article
                   key={post.id}
                   className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all cursor-pointer"
@@ -442,6 +492,29 @@ export function BlogPage() {
                   </span>
                 </article>
               ))}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 pt-8">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    ← Previous
+                  </button>
+                  <span className="text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
