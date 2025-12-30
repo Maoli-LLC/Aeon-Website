@@ -110,6 +110,7 @@ function BlogsSection() {
   const [showForm, setShowForm] = useState(false);
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false });
+  const [searchQuery, setSearchQuery] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -176,14 +177,23 @@ function BlogsSection() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Blog Posts</h2>
-        <button
-          onClick={() => { setShowForm(true); setEditingPost(null); setFormData({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false }); }}
-          className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
-        >
-          New Post
-        </button>
+        <div className="flex items-center gap-4">
+          <input
+            type="text"
+            placeholder="Search posts..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white w-64"
+          />
+          <button
+            onClick={() => { setShowForm(true); setEditingPost(null); setFormData({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false }); }}
+            className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
+          >
+            New Post
+          </button>
+        </div>
       </div>
 
       {showForm && (
@@ -284,7 +294,14 @@ function BlogsSection() {
       )}
 
       <div className="space-y-4">
-        {posts.map(post => (
+        {posts
+          .filter(post => 
+            searchQuery === '' || 
+            post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            post.category.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map(post => (
           <div key={post.id} className="bg-card border border-primary/20 rounded-lg p-4 flex justify-between items-start">
             <div>
               <h3 className="text-xl text-primary">{post.title}</h3>
@@ -668,6 +685,7 @@ function MusicSection() {
 function SubscribersSection() {
   const [subscribers, setSubscribers] = useState<EmailSubscriber[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/subscribers')
@@ -686,11 +704,26 @@ function SubscribersSection() {
   const activeSubscribers = subscribers.filter(s => !s.marketingOptOut);
   const optedOutSubscribers = subscribers.filter(s => s.marketingOptOut);
 
+  const filteredSubscribers = subscribers.filter(sub => 
+    searchQuery === '' || 
+    sub.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (sub.name && sub.name.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   return (
     <div>
-      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>
-        Email Subscribers ({activeSubscribers.length} active, {optedOutSubscribers.length} unsubscribed)
-      </h2>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+          Email Subscribers ({activeSubscribers.length} active, {optedOutSubscribers.length} unsubscribed)
+        </h2>
+        <input
+          type="text"
+          placeholder="Search by email or name..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white w-64"
+        />
+      </div>
       <div className="bg-card border border-primary/20 rounded-lg overflow-hidden">
         <table className="w-full">
           <thead className="bg-secondary">
@@ -703,11 +736,11 @@ function SubscribersSection() {
             </tr>
           </thead>
           <tbody>
-            {subscribers.length === 0 ? (
+            {filteredSubscribers.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-3 text-white/80 text-center">No subscribers yet.</td>
+                <td colSpan={5} className="px-4 py-3 text-white/80 text-center">{searchQuery ? 'No matching subscribers found.' : 'No subscribers yet.'}</td>
               </tr>
-            ) : subscribers.map(sub => (
+            ) : filteredSubscribers.map(sub => (
               <tr key={sub.id} className={`border-t border-primary/10 ${sub.marketingOptOut ? 'opacity-60' : ''}`}>
                 <td className="px-4 py-3 text-white">{sub.email}</td>
                 <td className="px-4 py-3 text-white">{sub.name || '-'}</td>
