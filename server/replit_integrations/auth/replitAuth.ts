@@ -61,13 +61,17 @@ async function upsertUser(claims: any) {
     profileImageUrl: claims["profile_image_url"],
   });
 
-  // Also add the user as an email subscriber
-  if (claims["email"]) {
-    const fullName = [claims["first_name"], claims["last_name"]].filter(Boolean).join(" ") || null;
-    await db.insert(emailSubscribers).values({
-      email: claims["email"],
-      name: fullName,
-    }).onConflictDoNothing();
+  // Also add the user as an email subscriber (don't let this fail the login)
+  try {
+    if (claims["email"]) {
+      const fullName = [claims["first_name"], claims["last_name"]].filter(Boolean).join(" ") || null;
+      await db.insert(emailSubscribers).values({
+        email: claims["email"],
+        name: fullName,
+      }).onConflictDoNothing();
+    }
+  } catch (error) {
+    console.error("Error adding user to email subscribers:", error);
   }
 }
 
