@@ -334,34 +334,34 @@ export function BlogPage() {
 
             {/* Previous/Next Navigation */}
             <div className="border-t border-primary/20 pt-12 mt-12">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {prevPost ? (
                   <button
                     onClick={() => viewPost(prevPost)}
-                    className="flex items-center gap-4 p-6 bg-card border border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group"
+                    className="flex items-center gap-3 p-4 sm:p-6 bg-card border border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-left group w-full overflow-hidden"
                   >
-                    <span className="text-3xl text-primary group-hover:scale-110 transition-transform">←</span>
-                    <div>
-                      <p className="text-sm text-primary font-semibold uppercase tracking-wide mb-1">Previous Post</p>
-                      <p className="text-white text-lg">{truncateText(prevPost.title, 40)}</p>
+                    <span className="text-2xl sm:text-3xl text-primary group-hover:scale-110 transition-transform flex-shrink-0">←</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-primary font-semibold uppercase tracking-wide mb-1">Previous Post</p>
+                      <p className="text-white text-base sm:text-lg truncate">{prevPost.title}</p>
                     </div>
                   </button>
                 ) : (
-                  <div />
+                  <div className="hidden sm:block" />
                 )}
                 {nextPost ? (
                   <button
                     onClick={() => viewPost(nextPost)}
-                    className="flex items-center justify-end gap-4 p-6 bg-card border border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-right group"
+                    className="flex items-center justify-end gap-3 p-4 sm:p-6 bg-card border border-primary/30 rounded-lg hover:border-primary hover:bg-primary/5 transition-all text-right group w-full overflow-hidden"
                   >
-                    <div>
-                      <p className="text-sm text-primary font-semibold uppercase tracking-wide mb-1">Next Post</p>
-                      <p className="text-white text-lg">{truncateText(nextPost.title, 40)}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs sm:text-sm text-primary font-semibold uppercase tracking-wide mb-1">Next Post</p>
+                      <p className="text-white text-base sm:text-lg truncate">{nextPost.title}</p>
                     </div>
-                    <span className="text-3xl text-primary group-hover:scale-110 transition-transform">→</span>
+                    <span className="text-2xl sm:text-3xl text-primary group-hover:scale-110 transition-transform flex-shrink-0">→</span>
                   </button>
                 ) : (
-                  <div />
+                  <div className="hidden sm:block" />
                 )}
               </div>
             </div>
