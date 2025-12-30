@@ -121,7 +121,7 @@ export async function setupAuth(app: Express) {
     const hostname = getHostname(req);
     ensureStrategy(hostname);
     passport.authenticate(`replitauth:${hostname}`, {
-      prompt: "select_account consent",
+      prompt: "login consent",
       scope: ["openid", "email", "profile", "offline_access"],
     })(req, res, next);
   });
