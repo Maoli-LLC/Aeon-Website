@@ -7,16 +7,16 @@ export function StorePage() {
       description: 'Wear the frequency with custom designed apparel',
     },
     {
-      name: 'Stickers',
-      description: 'Symbolic designs to amplify your space',
+      name: 'Mugs',
+      description: 'Start your day aligned with the harmonic',
     },
     {
       name: 'Accessories',
       description: 'Harmonically aligned items for daily use',
     },
     {
-      name: 'Digital Downloads',
-      description: 'Wallpapers, prints, and digital art',
+      name: 'More',
+      description: 'Explore additional items and collections',
     },
   ];
 
@@ -29,7 +29,7 @@ export function StorePage() {
             Shop the Frequency
           </h1>
           <p className="text-xl text-muted-foreground">
-            Explore apparel, stickers, and digital downloads aligned with the harmonic
+            Explore apparel, mugs, accessories, and more aligned with the harmonic
           </p>
         </div>
       </section>
@@ -60,7 +60,7 @@ export function StorePage() {
               Visit Our Printify Store
             </h2>
             <p className="text-white/90 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Our complete collection of t-shirts, stickers, accessories, and digital downloads is available
+              Our complete collection of t-shirts, mugs, accessories, and more is available
               through our Printify storefront. Browse the full catalog and find items that resonate with your frequency.
             </p>
             <a
