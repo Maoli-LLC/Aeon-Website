@@ -1,11 +1,40 @@
 import { Link, Outlet } from 'react-router-dom';
 import { Menu, X, User, LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { useState, FormEvent } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { toast } from 'sonner';
 
 export function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [subscribeEmail, setSubscribeEmail] = useState('');
+  const [subscribing, setSubscribing] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+
+  const handleSubscribe = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!subscribeEmail.trim()) {
+      toast.error('Please enter your email');
+      return;
+    }
+    setSubscribing(true);
+    try {
+      const res = await fetch('/api/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: subscribeEmail }),
+      });
+      if (res.ok) {
+        toast.success('Welcome to Team Aeon!');
+        setSubscribeEmail('');
+      } else {
+        toast.error('Failed to subscribe. Please try again.');
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.');
+    } finally {
+      setSubscribing(false);
+    }
+  };
 
   const navigationLinks = [
     { name: 'Home', path: '/' },
@@ -143,17 +172,21 @@ export function Layout() {
             <p className="text-muted-foreground mb-6">
               Get codex entries, drops, and transmissions directly to your inbox
             </p>
-            <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+            <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
               <input
                 type="email"
                 placeholder="Enter your email"
+                value={subscribeEmail}
+                onChange={(e) => setSubscribeEmail(e.target.value)}
                 className="flex-1 px-4 py-3 bg-input-background border border-primary/20 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 text-white placeholder:text-muted-foreground"
+                required
               />
               <button
                 type="submit"
-                className="px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+                disabled={subscribing}
+                className="px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                Subscribe
+                {subscribing ? 'Subscribing...' : 'Subscribe'}
               </button>
             </form>
           </div>

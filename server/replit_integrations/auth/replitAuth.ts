@@ -7,6 +7,8 @@ import type { Express, RequestHandler } from "express";
 import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { authStorage } from "./storage";
+import { db } from "../../db";
+import { emailSubscribers } from "@shared/schema";
 
 const getOidcConfig = memoize(
   async () => {
@@ -58,6 +60,15 @@ async function upsertUser(claims: any) {
     lastName: claims["last_name"],
     profileImageUrl: claims["profile_image_url"],
   });
+
+  // Also add the user as an email subscriber
+  if (claims["email"]) {
+    const fullName = [claims["first_name"], claims["last_name"]].filter(Boolean).join(" ") || null;
+    await db.insert(emailSubscribers).values({
+      email: claims["email"],
+      name: fullName,
+    }).onConflictDoNothing();
+  }
 }
 
 export async function setupAuth(app: Express) {
