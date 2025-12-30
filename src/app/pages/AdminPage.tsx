@@ -748,7 +748,7 @@ function EmailMarketingSection() {
   const [subscriberCount, setSubscriberCount] = useState(0);
   const [sendMode, setSendMode] = useState<'now' | 'schedule'>('now');
   const [scheduledDate, setScheduledDate] = useState('');
-  const [scheduledTime, setScheduledTime] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('09:00');
   const [scheduledEmails, setScheduledEmails] = useState<ScheduledEmail[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({

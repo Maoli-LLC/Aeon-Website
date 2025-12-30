@@ -371,7 +371,7 @@ async function main() {
         } else if (type === "product") {
           subject = `New Product: ${title}`;
           
-          let ctaUrl = `${siteUrl}/store`;
+          let ctaUrl = "https://iamsahlien.printify.me";
           let ctaText = "Shop Now";
           
           if (linkDestination === "blog" && linkedPostId) {
@@ -781,7 +781,7 @@ async function main() {
             } else if (scheduled.type === "product") {
               subject = `New Product: ${scheduled.title}`;
               
-              let ctaUrl = `${siteUrl}/store`;
+              let ctaUrl = "https://iamsahlien.printify.me";
               let ctaText = "Shop Now";
               
               if (scheduled.linkDestination === "blog" && scheduled.linkedPostId) {
