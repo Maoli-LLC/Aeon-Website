@@ -178,9 +178,14 @@ export function MusicCreationPage() {
                   <li>• 24-hour delivery</li>
                   <li>• WAV & MP3 formats</li>
                 </ul>
-                <button className="w-full px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors">
+                <a 
+                  href="https://buy.stripe.com/14AaEWayD2JGgoSfB87Vm0j"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors text-center"
+                >
                   Commission 1 Song
-                </button>
+                </a>
               </div>
             </div>
 
@@ -204,9 +209,14 @@ export function MusicCreationPage() {
                   <li>• Album artwork included</li>
                   <li>• Mastering & formats</li>
                 </ul>
-                <button className="w-full px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors">
+                <a 
+                  href="https://buy.stripe.com/aFa5kC2278408WqagO7Vm0l"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block w-full px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors text-center"
+                >
                   Commission 1 Album
-                </button>
+                </a>
               </div>
             </div>
           </div>
