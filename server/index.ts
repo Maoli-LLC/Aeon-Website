@@ -318,9 +318,11 @@ async function main() {
       }
 
       let subject = "";
-      const siteUrl = process.env.REPLIT_DEV_DOMAIN 
-        ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : "https://www.iamsahlien.com";
+      const siteUrl = process.env.NODE_ENV === "production"
+        ? "https://www.iamsahlien.com"
+        : (process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+          : "https://www.iamsahlien.com");
 
       // Generate tokens for subscribers who don't have one yet
       for (const subscriber of subscribers) {
@@ -735,9 +737,11 @@ async function main() {
             continue;
           }
 
-          const siteUrl = process.env.REPLIT_DEV_DOMAIN 
-            ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-            : "https://team-aeon.replit.app";
+          const siteUrl = process.env.NODE_ENV === "production"
+            ? "https://www.iamsahlien.com"
+            : (process.env.REPLIT_DEV_DOMAIN 
+              ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+              : "https://www.iamsahlien.com");
 
           // Generate tokens for subscribers who don't have one
           for (const subscriber of subscribers) {
