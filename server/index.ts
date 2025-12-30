@@ -36,6 +36,20 @@ async function main() {
 
   // Public API routes
 
+  // Helper function to auto-subscribe users when they submit requests
+  const autoSubscribe = async (email: string, name: string) => {
+    try {
+      const unsubscribeToken = crypto.randomBytes(32).toString('hex');
+      await db.insert(emailSubscribers).values({
+        email,
+        name,
+        unsubscribeToken,
+      }).onConflictDoNothing();
+    } catch (error) {
+      console.error("Error auto-subscribing user:", error);
+    }
+  };
+
   // Submit dream interpretation request
   app.post("/api/dream-requests", async (req, res) => {
     try {
@@ -48,6 +62,9 @@ async function main() {
         name,
         dreamDescription,
       }).returning();
+      
+      await autoSubscribe(email, name);
+      
       res.json({ success: true, id: request.id });
     } catch (error) {
       console.error("Error creating dream request:", error);
@@ -69,6 +86,9 @@ async function main() {
         mood,
         purpose,
       }).returning();
+      
+      await autoSubscribe(email, name);
+      
       res.json({ success: true, id: request.id });
     } catch (error) {
       console.error("Error creating music request:", error);
@@ -92,6 +112,9 @@ async function main() {
         colorPreferences,
         exampleSites,
       }).returning();
+      
+      await autoSubscribe(email, name);
+      
       res.json({ success: true, id: request.id });
     } catch (error) {
       console.error("Error creating webapp request:", error);
