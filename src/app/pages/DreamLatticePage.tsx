@@ -121,9 +121,14 @@ export function DreamLatticePage() {
             <p className="text-muted-foreground mb-6">
               Amplifier support is not payment—it is voluntary energy exchange for those who resonate with the work.
             </p>
-            <button className="px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all">
+            <a
+              href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all"
+            >
               Support as Amplifier ($133)
-            </button>
+            </a>
           </div>
         </div>
       </section>
