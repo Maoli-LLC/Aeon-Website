@@ -158,8 +158,8 @@ export function WebAppServicePage() {
                   className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
                 >
                   <option value="website">Website</option>
-                  <option value="app">Web Application</option>
-                  <option value="both">Both Website & App</option>
+                  <option value="app">Mobile Application</option>
+                  <option value="both">Both Website & Mobile App</option>
                 </select>
               </div>
 
