@@ -318,7 +318,7 @@ async function main() {
       let subject = "";
       const siteUrl = process.env.REPLIT_DEV_DOMAIN 
         ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-        : "https://team-aeon.replit.app";
+        : "https://www.iamsahlien.com";
 
       // Generate tokens for subscribers who don't have one yet
       for (const subscriber of subscribers) {
