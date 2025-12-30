@@ -341,6 +341,83 @@ async function main() {
     }
   });
 
+  // Send music lyrics/response email
+  app.post("/api/admin/music-requests/:id/send-email", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { response } = req.body;
+      
+      const [request] = await db.select().from(musicRequests).where(eq(musicRequests.id, id));
+      if (!request) {
+        return res.status(404).json({ message: "Music request not found" });
+      }
+
+      const singleSongLink = "https://buy.stripe.com/14AaEWayD2JGgoSfB87Vm0j";
+      const fullAlbumLink = "https://buy.stripe.com/aFa5kC2278408WqagO7Vm0l";
+      
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Music Creation</h1>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Thank you for sharing your musical vision with us. Here is your free lyrics blueprint:</p>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Your Vision:</h3>
+            <p style="font-style: italic; color: #ccc;">${request.description}</p>
+            ${request.mood ? `<p style="color: #999; margin-top: 10px;">Mood: ${request.mood}</p>` : ''}
+            ${request.purpose ? `<p style="color: #999;">Purpose: ${request.purpose}</p>` : ''}
+          </div>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Your Lyrics Blueprint:</h3>
+            <p style="line-height: 1.8; white-space: pre-wrap;">${response}</p>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.8;">These lyrics are offered freely as a gift. If they resonate with you and you wish to bring them to life through full musical production, choose from the commission options below:</p>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Commission Options</h3>
+            
+            <div style="margin: 20px 0;">
+              <p style="font-size: 18px; color: #fff; margin-bottom: 10px;"><strong>Single Song - $97</strong></p>
+              <p style="font-size: 14px; color: #999; margin-bottom: 15px;">Full production with 24-hour delivery</p>
+              <a href="${singleSongLink}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Commission 1 Song</a>
+            </div>
+            
+            <div style="margin: 30px 0 10px;">
+              <p style="font-size: 18px; color: #fff; margin-bottom: 10px;"><strong>Full Album - $444</strong></p>
+              <p style="font-size: 14px; color: #999; margin-bottom: 15px;">Complete album experience (10-12 tracks)</p>
+              <a href="${fullAlbumLink}" style="display: inline-block; padding: 15px 30px; background-color: transparent; color: #d4af37; border: 2px solid #d4af37; text-decoration: none; border-radius: 4px; font-size: 16px;">Commission 1 Album</a>
+            </div>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
+          
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from Team Aeon Music Creation.</p>
+        </div>
+      `;
+      
+      await sendEmail(
+        request.email,
+        "Your Music Creation Lyrics Blueprint",
+        htmlBody
+      );
+      
+      // Update status to in_progress after sending lyrics
+      await db.update(musicRequests)
+        .set({ status: 'in_progress', notes: response, updatedAt: new Date() })
+        .where(eq(musicRequests.id, id));
+      
+      res.json({ success: true, message: "Email sent successfully" });
+    } catch (error) {
+      console.error("Error sending music response email:", error);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
   // Get all comments (admin)
   app.get("/api/admin/comments", isAuthenticated, isOwner, async (req, res) => {
     try {
