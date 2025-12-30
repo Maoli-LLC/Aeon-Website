@@ -43,11 +43,17 @@ export function TermsPage() {
 
           <h2 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>4. Music Creation Services</h2>
           <p className="text-white/90 mb-4 leading-relaxed">
+            Team Aeon utilizes technology-assisted tools to create music for general releases and content. However, 
+            when you commission custom music creation services, your songs are created without the use of technology-assisted 
+            generation tools, ensuring a personalized, handcrafted approach to your music.
+          </p>
+          <p className="text-white/90 mb-4 leading-relaxed">
             When you commission music creation services from Team Aeon:
           </p>
           <ul className="list-disc list-inside text-white/90 mb-6 space-y-2">
             <li>Single song commissions are priced at $97 per song</li>
             <li>Album commissions (10-12 songs) are priced at $444</li>
+            <li>Commissioned works are created without technology-assisted generation</li>
             <li>All commissioned works become the property of the client upon full payment</li>
             <li>Team Aeon reserves the right to showcase commissioned works in our portfolio unless otherwise agreed</li>
             <li>Delivery timelines will be communicated upon project acceptance</li>
