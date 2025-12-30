@@ -88,12 +88,12 @@ export function Layout() {
                     </a>
                   </div>
                 ) : (
-                  <a
-                    href="/api/login"
+                  <Link
+                    to="/login"
                     className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors text-sm font-medium"
                   >
                     Sign In
-                  </a>
+                  </Link>
                 )
               )}
             </div>
@@ -143,12 +143,13 @@ export function Layout() {
                       </a>
                     </>
                   ) : (
-                    <a
-                      href="/api/login"
+                    <Link
+                      to="/login"
                       className="inline-block px-4 py-2 bg-primary text-black rounded-md text-center"
+                      onClick={() => setMobileMenuOpen(false)}
                     >
                       Sign In
-                    </a>
+                    </Link>
                   )
                 )}
               </div>
