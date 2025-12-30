@@ -80,10 +80,14 @@ export function Homepage() {
               <p className="text-muted-foreground mb-6">
                 Advanced transmissions for those ready to deepen their understanding.
               </p>
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors">
+              <a
+                href="/AeonCodex.epub"
+                download="AeonCodex.epub"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+              >
                 <Download size={20} />
                 Download EPUB
-              </button>
+              </a>
             </div>
           </div>
         </div>
