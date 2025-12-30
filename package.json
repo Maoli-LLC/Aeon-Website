@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "start": "NODE_ENV=production tsx server/index.ts",
     "dev": "tsx server/index.ts & vite",
     "dev:frontend": "vite",
     "dev:backend": "tsx server/index.ts",

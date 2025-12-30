@@ -1,4 +1,6 @@
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
@@ -838,10 +840,31 @@ async function main() {
   // Also run once on startup after a short delay
   setTimeout(processScheduledEmails, 5000);
 
-  const PORT = 3001;
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Backend server running on port ${PORT}`);
-  });
+  // Production: Serve static files and handle client-side routing
+  if (process.env.NODE_ENV === "production") {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const distPath = path.join(__dirname, "..", "dist");
+    
+    app.use(express.static(distPath));
+    
+    // Handle client-side routing - serve index.html for all non-API routes
+    app.get("*", (req, res) => {
+      if (!req.path.startsWith("/api")) {
+        res.sendFile(path.join(distPath, "index.html"));
+      }
+    });
+
+    const PORT = 5000;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Production server running on port ${PORT}`);
+    });
+  } else {
+    const PORT = 3001;
+    app.listen(PORT, "0.0.0.0", () => {
+      console.log(`Backend server running on port ${PORT}`);
+    });
+  }
 }
 
 main().catch(console.error);
