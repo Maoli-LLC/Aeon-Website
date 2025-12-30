@@ -370,6 +370,13 @@ async function main() {
           ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
           : "https://www.iamsahlien.com");
 
+      // Helper to convert relative image URLs to absolute URLs for emails
+      const getAbsoluteImageUrl = (url: string | null | undefined): string | null => {
+        if (!url) return null;
+        if (url.startsWith('http://') || url.startsWith('https://')) return url;
+        return `${siteUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+      };
+
       // Generate tokens for subscribers who don't have one yet
       for (const subscriber of subscribers) {
         if (!subscriber.unsubscribeToken) {
@@ -403,7 +410,7 @@ async function main() {
               
               <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px;">${post.title}</h2>
               
-              ${post.imageUrl ? `<img src="${post.imageUrl}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
+              ${post.imageUrl ? `<img src="${getAbsoluteImageUrl(post.imageUrl)}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
               
               <p style="font-size: 16px; line-height: 1.8; color: #ccc;">${post.excerpt}</p>
               
@@ -435,7 +442,7 @@ async function main() {
               
               <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px; text-align: center;">New Arrival</h2>
               
-              ${imageUrl ? `<img src="${imageUrl}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
+              ${imageUrl ? `<img src="${getAbsoluteImageUrl(imageUrl)}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
               
               <h3 style="color: #fff; font-size: 22px; margin-bottom: 10px; text-align: center;">${title}</h3>
               
@@ -898,6 +905,13 @@ async function main() {
               ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
               : "https://www.iamsahlien.com");
 
+          // Helper to convert relative image URLs to absolute URLs for emails
+          const getAbsoluteImageUrl = (url: string | null | undefined): string | null => {
+            if (!url) return null;
+            if (url.startsWith('http://') || url.startsWith('https://')) return url;
+            return `${siteUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+          };
+
           // Generate tokens for subscribers who don't have one
           for (const subscriber of subscribers) {
             if (!subscriber.unsubscribeToken) {
@@ -927,7 +941,7 @@ async function main() {
                 <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
                   <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
                   <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px;">${post.title}</h2>
-                  ${post.imageUrl ? `<img src="${post.imageUrl}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
+                  ${post.imageUrl ? `<img src="${getAbsoluteImageUrl(post.imageUrl)}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
                   <p style="font-size: 16px; line-height: 1.8; color: #ccc;">${post.excerpt}</p>
                   <div style="text-align: center; margin: 30px 0;">
                     <a href="${blogUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Read More</a>
@@ -954,7 +968,7 @@ async function main() {
                 <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
                   <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
                   <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px; text-align: center;">New Arrival</h2>
-                  ${scheduled.imageUrl ? `<img src="${scheduled.imageUrl}" alt="${scheduled.title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
+                  ${scheduled.imageUrl ? `<img src="${getAbsoluteImageUrl(scheduled.imageUrl)}" alt="${scheduled.title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
                   <h3 style="color: #fff; font-size: 22px; margin-bottom: 10px; text-align: center;">${scheduled.title}</h3>
                   <p style="font-size: 16px; line-height: 1.8; color: #ccc; text-align: center;">${scheduled.description}</p>
                   <div style="text-align: center; margin: 30px 0;">
