@@ -305,6 +305,10 @@ function BlogsSection() {
 function DreamsSection() {
   const [requests, setRequests] = useState<DreamRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState<DreamRequest | null>(null);
+  const [interpretation, setInterpretation] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
 
   useEffect(() => {
     fetch('/api/admin/dream-requests')
@@ -319,6 +323,46 @@ function DreamsSection() {
       body: JSON.stringify({ status }),
     });
     setRequests(requests.map(r => r.id === id ? { ...r, status } : r));
+    if (selectedRequest?.id === id) {
+      setSelectedRequest({ ...selectedRequest, status });
+    }
+  };
+
+  const sendInterpretation = async () => {
+    if (!selectedRequest || !interpretation.trim()) return;
+    setSending(true);
+    setSendSuccess(false);
+    try {
+      const res = await fetch(`/api/admin/dream-requests/${selectedRequest.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interpretation }),
+      });
+      if (res.ok) {
+        setSendSuccess(true);
+        setRequests(requests.map(r => r.id === selectedRequest.id ? { ...r, status: 'completed', notes: interpretation } : r));
+        setSelectedRequest({ ...selectedRequest, status: 'completed', notes: interpretation });
+      }
+    } catch (error) {
+      console.error('Error sending email:', error);
+    }
+    setSending(false);
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending': return 'bg-yellow-500/20 text-yellow-400 border-yellow-500';
+      case 'in_progress': return 'bg-blue-500/20 text-blue-400 border-blue-500';
+      case 'completed': return 'bg-green-500/20 text-green-400 border-green-500';
+      case 'archived': return 'bg-gray-500/20 text-gray-400 border-gray-500';
+      default: return 'bg-yellow-500/20 text-yellow-400 border-yellow-500';
+    }
+  };
+
+  const openRequest = (request: DreamRequest) => {
+    setSelectedRequest(request);
+    setInterpretation(request.notes || '');
+    setSendSuccess(false);
   };
 
   if (loading) return <p className="text-white">Loading...</p>;
@@ -326,33 +370,110 @@ function DreamsSection() {
   return (
     <div>
       <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>Dream Interpretation Requests</h2>
-      <div className="space-y-4">
-        {requests.length === 0 ? (
-          <p className="text-white/80">No dream requests yet.</p>
-        ) : requests.map(request => (
-          <div key={request.id} className="bg-card border border-primary/20 rounded-lg p-4">
-            <div className="flex justify-between items-start mb-2">
-              <div>
-                <h3 className="text-lg text-primary">{request.name}</h3>
-                <p className="text-sm text-muted-foreground">{request.email}</p>
-              </div>
-              <select
-                value={request.status || 'pending'}
-                onChange={e => updateStatus(request.id, e.target.value)}
-                className="px-3 py-1 bg-background border border-primary/20 rounded-md text-white text-sm"
-              >
-                <option value="pending">Pending</option>
-                <option value="completed">Completed</option>
-                <option value="archived">Archived</option>
-              </select>
+      
+      {selectedRequest ? (
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <div className="flex justify-between items-start mb-6">
+            <button 
+              onClick={() => setSelectedRequest(null)}
+              className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10"
+            >
+              Back to List
+            </button>
+            <div className="flex gap-2">
+              {['pending', 'in_progress', 'completed', 'archived'].map(status => (
+                <button
+                  key={status}
+                  onClick={() => updateStatus(selectedRequest.id, status)}
+                  className={`px-3 py-1 rounded-md border text-sm capitalize transition-all ${
+                    selectedRequest.status === status 
+                      ? getStatusColor(status) 
+                      : 'border-primary/20 text-muted-foreground hover:border-primary/50'
+                  }`}
+                >
+                  {status.replace('_', ' ')}
+                </button>
+              ))}
             </div>
-            <p className="text-white/90 whitespace-pre-wrap">{request.dreamDescription}</p>
-            <p className="text-xs text-muted-foreground mt-2">
-              Submitted: {new Date(request.createdAt!).toLocaleDateString()}
-            </p>
           </div>
-        ))}
-      </div>
+          
+          <div className="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <h3 className="text-xl text-primary mb-2" style={{ fontFamily: "'Cinzel', serif" }}>{selectedRequest.name}</h3>
+              <p className="text-muted-foreground mb-4">{selectedRequest.email}</p>
+              <p className="text-xs text-muted-foreground">
+                Submitted: {new Date(selectedRequest.createdAt!).toLocaleString()}
+              </p>
+            </div>
+            <div className={`px-4 py-2 rounded-md border self-start text-center ${getStatusColor(selectedRequest.status || 'pending')}`}>
+              Status: {(selectedRequest.status || 'pending').replace('_', ' ')}
+            </div>
+          </div>
+          
+          <div className="bg-secondary rounded-lg p-4 mb-6">
+            <h4 className="text-primary mb-2 font-semibold">Their Dream:</h4>
+            <p className="text-white/90 whitespace-pre-wrap leading-relaxed">{selectedRequest.dreamDescription}</p>
+          </div>
+          
+          <div className="mb-6">
+            <label className="block text-primary mb-2 font-semibold">Your Interpretation:</label>
+            <textarea
+              value={interpretation}
+              onChange={e => setInterpretation(e.target.value)}
+              className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-64"
+              placeholder="Write your symbolic interpretation here..."
+            />
+          </div>
+          
+          {sendSuccess && (
+            <div className="bg-green-500/20 border border-green-500 text-green-400 px-4 py-3 rounded-md mb-4 text-center">
+              Email sent successfully with interpretation and Amplifier link!
+            </div>
+          )}
+          
+          <div className="flex gap-4">
+            <button
+              onClick={sendInterpretation}
+              disabled={sending || !interpretation.trim()}
+              className="flex-1 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 disabled:opacity-50 transition-all"
+            >
+              {sending ? 'Sending...' : 'Send Interpretation & Amplifier Link'}
+            </button>
+            <button
+              onClick={() => updateStatus(selectedRequest.id, 'completed')}
+              className="px-6 py-3 border border-green-500 text-green-400 rounded-md hover:bg-green-500/20"
+            >
+              Mark Complete
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {requests.length === 0 ? (
+            <p className="text-white/80">No dream requests yet.</p>
+          ) : requests.map(request => (
+            <div 
+              key={request.id} 
+              onClick={() => openRequest(request)}
+              className="bg-card border border-primary/20 rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-all"
+            >
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <h3 className="text-lg text-primary">{request.name}</h3>
+                  <p className="text-sm text-muted-foreground">{request.email}</p>
+                </div>
+                <span className={`px-3 py-1 rounded-md border text-sm capitalize ${getStatusColor(request.status || 'pending')}`}>
+                  {(request.status || 'pending').replace('_', ' ')}
+                </span>
+              </div>
+              <p className="text-white/90 whitespace-pre-wrap line-clamp-3">{request.dreamDescription}</p>
+              <p className="text-xs text-muted-foreground mt-2">
+                Submitted: {new Date(request.createdAt!).toLocaleDateString()}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

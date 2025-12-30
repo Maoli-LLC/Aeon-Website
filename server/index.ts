@@ -4,6 +4,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { db } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
+import { sendEmail } from "./gmail";
 
 const app = express();
 app.use(express.json());
@@ -246,6 +247,70 @@ async function main() {
     } catch (error) {
       console.error("Error updating dream request:", error);
       res.status(500).json({ message: "Failed to update request" });
+    }
+  });
+
+  // Send dream interpretation email
+  app.post("/api/admin/dream-requests/:id/send-email", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { interpretation } = req.body;
+      
+      const [request] = await db.select().from(dreamRequests).where(eq(dreamRequests.id, id));
+      if (!request) {
+        return res.status(404).json({ message: "Dream request not found" });
+      }
+
+      const amplifierLink = "https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i";
+      
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Sovereign Dream Lattice</h1>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Thank you for sharing your dream with the Sovereign Dream Lattice. Below is your symbolic interpretation:</p>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Your Dream:</h3>
+            <p style="font-style: italic; color: #ccc;">${request.dreamDescription}</p>
+          </div>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Interpretation:</h3>
+            <p style="line-height: 1.8; white-space: pre-wrap;">${interpretation}</p>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Remember, this interpretation is reflective, not predictive. It is offered as a gift to illuminate the symbols that may help you discover your own truth.</p>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Optional Amplifier Support</h3>
+            <p style="font-size: 14px; color: #999; margin-bottom: 20px;">If you found value in this interpretation and wish to support its continuation, you may honor the exchange of energy through the Amplifier.</p>
+            <a href="${amplifierLink}" style="display: inline-block; padding: 15px 30px; background-color: transparent; color: #d4af37; border: 2px solid #d4af37; text-decoration: none; border-radius: 4px; font-size: 16px;">Support as Amplifier ($133)</a>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
+          
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from the Sovereign Dream Lattice at Team Aeon.</p>
+        </div>
+      `;
+      
+      await sendEmail(
+        request.email,
+        "Your Sovereign Dream Interpretation",
+        htmlBody
+      );
+      
+      // Update status to completed after sending
+      await db.update(dreamRequests)
+        .set({ status: 'completed', notes: interpretation, updatedAt: new Date() })
+        .where(eq(dreamRequests.id, id));
+      
+      res.json({ success: true, message: "Email sent successfully" });
+    } catch (error) {
+      console.error("Error sending dream interpretation email:", error);
+      res.status(500).json({ message: "Failed to send email" });
     }
   });
 
