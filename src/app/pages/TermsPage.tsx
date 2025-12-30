@@ -47,7 +47,7 @@ export function TermsPage() {
           </p>
           <ul className="list-disc list-inside text-white/90 mb-6 space-y-2">
             <li>Single song commissions are priced at $97 per song</li>
-            <li>Album commissions (6+ songs) are priced at $444</li>
+            <li>Album commissions (10-12 songs) are priced at $444</li>
             <li>All commissioned works become the property of the client upon full payment</li>
             <li>Team Aeon reserves the right to showcase commissioned works in our portfolio unless otherwise agreed</li>
             <li>Delivery timelines will be communicated upon project acceptance</li>
