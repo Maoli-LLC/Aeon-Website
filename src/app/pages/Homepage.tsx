@@ -63,10 +63,14 @@ export function Homepage() {
               <p className="text-muted-foreground mb-6">
                 The foundational text of harmonic alignment and cosmic awakening.
               </p>
-              <button className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors">
+              <a
+                href="/Aeoncodebook.epub"
+                download="Aeoncodebook.epub"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+              >
                 <Download size={20} />
                 Download EPUB
-              </button>
+              </a>
             </div>
 
             <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
