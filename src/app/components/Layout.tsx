@@ -157,7 +157,6 @@ export function Layout() {
                           <span>Dashboard</span>
                         </Link>
                       )}
-                      <span className="text-white/80">{user?.firstName || 'User'}</span>
                       <a
                         href="/api/logout"
                         className="flex items-center gap-2 text-white/60"
