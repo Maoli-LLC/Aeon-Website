@@ -1,6 +1,7 @@
 export * from "./models/auth";
 
 import { pgTable, serial, varchar, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { users } from "./models/auth";
 
 // Blog posts for Sahlien Blog and Dream Blog
 export const blogPosts = pgTable("blog_posts", {
@@ -59,3 +60,18 @@ export const musicRequests = pgTable("music_requests", {
 
 export type MusicRequest = typeof musicRequests.$inferSelect;
 export type InsertMusicRequest = typeof musicRequests.$inferInsert;
+
+// Blog comments
+export const blogComments = pgTable("blog_comments", {
+  id: serial("id").primaryKey(),
+  postId: serial("post_id").references(() => blogPosts.id),
+  userId: varchar("user_id").references(() => users.id),
+  userName: varchar("user_name", { length: 255 }).notNull(),
+  userImage: varchar("user_image", { length: 500 }),
+  content: text("content").notNull(),
+  status: varchar("status", { length: 50 }).default("published"), // published, hidden
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BlogComment = typeof blogComments.$inferSelect;
+export type InsertBlogComment = typeof blogComments.$inferInsert;

@@ -1,7 +1,7 @@
 import express from "express";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { db } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests } from "@shared/schema";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments } from "@shared/schema";
 import { eq, desc } from "drizzle-orm";
 
 const app = express();
@@ -101,6 +101,47 @@ async function main() {
     } catch (error) {
       console.error("Error fetching blog posts:", error);
       res.status(500).json({ message: "Failed to fetch posts" });
+    }
+  });
+
+  // Get comments for a blog post (public)
+  app.get("/api/blog-posts/:id/comments", async (req, res) => {
+    try {
+      const postId = parseInt(req.params.id);
+      const comments = await db.select().from(blogComments)
+        .where(eq(blogComments.postId, postId))
+        .orderBy(desc(blogComments.createdAt));
+      res.json(comments.filter(c => c.status === "published"));
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  // Post a comment (authenticated users only)
+  app.post("/api/blog-posts/:id/comments", isAuthenticated, async (req: any, res) => {
+    try {
+      const postId = parseInt(req.params.id);
+      const { content } = req.body;
+      if (!content || content.trim().length === 0) {
+        return res.status(400).json({ message: "Comment content is required" });
+      }
+      const user = req.user;
+      const userName = user.claims?.firstName && user.claims?.lastName 
+        ? `${user.claims.firstName} ${user.claims.lastName}`.trim()
+        : user.claims?.email?.split('@')[0] || 'Anonymous';
+      
+      const [comment] = await db.insert(blogComments).values({
+        postId,
+        userId: user.claims?.sub,
+        userName,
+        userImage: user.claims?.picture,
+        content: content.trim(),
+      }).returning();
+      res.json(comment);
+    } catch (error) {
+      console.error("Error creating comment:", error);
+      res.status(500).json({ message: "Failed to post comment" });
     }
   });
 
@@ -230,6 +271,45 @@ async function main() {
     } catch (error) {
       console.error("Error updating music request:", error);
       res.status(500).json({ message: "Failed to update request" });
+    }
+  });
+
+  // Get all comments (admin)
+  app.get("/api/admin/comments", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const comments = await db.select().from(blogComments).orderBy(desc(blogComments.createdAt));
+      res.json(comments);
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+      res.status(500).json({ message: "Failed to fetch comments" });
+    }
+  });
+
+  // Update comment status (admin)
+  app.put("/api/admin/comments/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      const [comment] = await db.update(blogComments)
+        .set({ status })
+        .where(eq(blogComments.id, id))
+        .returning();
+      res.json(comment);
+    } catch (error) {
+      console.error("Error updating comment:", error);
+      res.status(500).json({ message: "Failed to update comment" });
+    }
+  });
+
+  // Delete comment (admin)
+  app.delete("/api/admin/comments/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(blogComments).where(eq(blogComments.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting comment:", error);
+      res.status(500).json({ message: "Failed to delete comment" });
     }
   });
 
