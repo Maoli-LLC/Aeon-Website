@@ -1,9 +1,10 @@
 import express from "express";
+import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments } from "@shared/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { sendEmail } from "./gmail";
 
 const app = express();
@@ -80,14 +81,76 @@ async function main() {
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
       }
+      const unsubscribeToken = crypto.randomBytes(32).toString('hex');
       const [subscriber] = await db.insert(emailSubscribers).values({
         email,
         name,
+        unsubscribeToken,
       }).onConflictDoNothing().returning();
       res.json({ success: true });
     } catch (error) {
       console.error("Error subscribing:", error);
       res.status(500).json({ message: "Failed to subscribe" });
+    }
+  });
+
+  // Unsubscribe from marketing emails
+  app.get("/api/unsubscribe", async (req, res) => {
+    try {
+      const { token } = req.query;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).send(`
+          <html>
+            <head><title>Unsubscribe - Team Aeon</title></head>
+            <body style="font-family: Georgia, serif; background: #1a1a1a; color: #e5e5e5; padding: 40px; text-align: center;">
+              <h1 style="color: #d4af37;">Invalid Link</h1>
+              <p>This unsubscribe link is invalid or has expired.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      const [subscriber] = await db.select().from(emailSubscribers)
+        .where(eq(emailSubscribers.unsubscribeToken, token));
+      
+      if (!subscriber) {
+        return res.status(404).send(`
+          <html>
+            <head><title>Unsubscribe - Team Aeon</title></head>
+            <body style="font-family: Georgia, serif; background: #1a1a1a; color: #e5e5e5; padding: 40px; text-align: center;">
+              <h1 style="color: #d4af37;">Subscription Not Found</h1>
+              <p>This email is not subscribed to our mailing list.</p>
+            </body>
+          </html>
+        `);
+      }
+      
+      await db.update(emailSubscribers)
+        .set({ marketingOptOut: true })
+        .where(eq(emailSubscribers.id, subscriber.id));
+      
+      res.send(`
+        <html>
+          <head><title>Unsubscribed - Team Aeon</title></head>
+          <body style="font-family: Georgia, serif; background: #1a1a1a; color: #e5e5e5; padding: 40px; text-align: center;">
+            <h1 style="color: #d4af37;">Successfully Unsubscribed</h1>
+            <p>You have been unsubscribed from Team Aeon marketing emails.</p>
+            <p style="color: #888; margin-top: 20px;">You will no longer receive promotional emails from us.</p>
+            <a href="/" style="color: #d4af37; margin-top: 30px; display: inline-block;">Return to Team Aeon</a>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Error unsubscribing:", error);
+      res.status(500).send(`
+        <html>
+          <head><title>Error - Team Aeon</title></head>
+          <body style="font-family: Georgia, serif; background: #1a1a1a; color: #e5e5e5; padding: 40px; text-align: center;">
+            <h1 style="color: #d4af37;">Something Went Wrong</h1>
+            <p>Please try again later or contact us directly.</p>
+          </body>
+        </html>
+      `);
     }
   });
 
@@ -244,84 +307,105 @@ async function main() {
     try {
       const { type, postId, title, description, imageUrl, linkDestination, linkedPostId } = req.body;
       
-      // Get all subscribers
-      const subscribers = await db.select().from(emailSubscribers);
+      // Get all subscribers who haven't opted out of marketing
+      const allSubscribers = await db.select().from(emailSubscribers);
+      const subscribers = allSubscribers.filter(s => !s.marketingOptOut);
+      
       if (subscribers.length === 0) {
-        return res.status(400).json({ error: "No subscribers to send to" });
+        return res.status(400).json({ error: "No subscribers to send to (all have opted out or no subscribers exist)" });
       }
 
       let subject = "";
-      let htmlBody = "";
       const siteUrl = process.env.REPLIT_DEV_DOMAIN 
         ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
         : "https://team-aeon.replit.app";
 
-      if (type === "blog") {
-        // Get the blog post
-        const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, postId));
-        if (!post) {
-          return res.status(404).json({ error: "Blog post not found" });
+      // Generate tokens for subscribers who don't have one yet
+      for (const subscriber of subscribers) {
+        if (!subscriber.unsubscribeToken) {
+          const token = crypto.randomBytes(32).toString('hex');
+          await db.update(emailSubscribers)
+            .set({ unsubscribeToken: token })
+            .where(eq(emailSubscribers.id, subscriber.id));
+          subscriber.unsubscribeToken = token;
         }
-
-        subject = `New from Team Aeon: ${post.title}`;
-        const blogUrl = `${siteUrl}/blog?post=${post.id}`;
-        
-        htmlBody = `
-          <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
-            <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
-            
-            <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px;">${post.title}</h2>
-            
-            ${post.imageUrl ? `<img src="${post.imageUrl}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
-            
-            <p style="font-size: 16px; line-height: 1.8; color: #ccc;">${post.excerpt}</p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${blogUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Read More</a>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #666; text-align: center;">You're receiving this because you subscribed to Team Aeon updates.</p>
-          </div>
-        `;
-      } else if (type === "product") {
-        subject = `New Product: ${title}`;
-        
-        let ctaUrl = `${siteUrl}/store`;
-        let ctaText = "Shop Now";
-        
-        if (linkDestination === "blog" && linkedPostId) {
-          ctaUrl = `${siteUrl}/blog?post=${linkedPostId}`;
-          ctaText = "Read More";
-        }
-        
-        htmlBody = `
-          <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
-            <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
-            
-            <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px; text-align: center;">New Arrival</h2>
-            
-            ${imageUrl ? `<img src="${imageUrl}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
-            
-            <h3 style="color: #fff; font-size: 22px; margin-bottom: 10px; text-align: center;">${title}</h3>
-            
-            <p style="font-size: 16px; line-height: 1.8; color: #ccc; text-align: center;">${description}</p>
-            
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${ctaUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">${ctaText}</a>
-            </div>
-            
-            <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
-            <p style="font-size: 12px; color: #666; text-align: center;">You're receiving this because you subscribed to Team Aeon updates.</p>
-          </div>
-        `;
-      } else {
-        return res.status(400).json({ error: "Invalid email type" });
       }
 
-      // Send emails to all subscribers
+      // Send emails to all subscribers with personalized unsubscribe links
       let sentCount = 0;
+      
       for (const subscriber of subscribers) {
+        const unsubscribeUrl = `${siteUrl}/api/unsubscribe?token=${subscriber.unsubscribeToken}`;
+        let htmlBody = "";
+        
+        if (type === "blog") {
+          const [post] = await db.select().from(blogPosts).where(eq(blogPosts.id, postId));
+          if (!post) {
+            return res.status(404).json({ error: "Blog post not found" });
+          }
+          
+          subject = `New from Team Aeon: ${post.title}`;
+          const blogUrl = `${siteUrl}/blog?post=${post.id}`;
+          
+          htmlBody = `
+            <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+              <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+              
+              <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px;">${post.title}</h2>
+              
+              ${post.imageUrl ? `<img src="${post.imageUrl}" alt="${post.title}" style="width: 100%; max-height: 300px; object-fit: cover; border-radius: 8px; margin-bottom: 20px;">` : ''}
+              
+              <p style="font-size: 16px; line-height: 1.8; color: #ccc;">${post.excerpt}</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${blogUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Read More</a>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+              <p style="font-size: 12px; color: #666; text-align: center;">
+                You're receiving this because you subscribed to Team Aeon updates.<br>
+                <a href="${unsubscribeUrl}" style="color: #888;">Unsubscribe</a>
+              </p>
+            </div>
+          `;
+        } else if (type === "product") {
+          subject = `New Product: ${title}`;
+          
+          let ctaUrl = `${siteUrl}/store`;
+          let ctaText = "Shop Now";
+          
+          if (linkDestination === "blog" && linkedPostId) {
+            ctaUrl = `${siteUrl}/blog?post=${linkedPostId}`;
+            ctaText = "Read More";
+          }
+          
+          htmlBody = `
+            <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+              <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+              
+              <h2 style="color: #d4af37; font-size: 24px; margin-bottom: 15px; text-align: center;">New Arrival</h2>
+              
+              ${imageUrl ? `<img src="${imageUrl}" alt="${title}" style="width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px; margin-bottom: 20px;">` : ''}
+              
+              <h3 style="color: #fff; font-size: 22px; margin-bottom: 10px; text-align: center;">${title}</h3>
+              
+              <p style="font-size: 16px; line-height: 1.8; color: #ccc; text-align: center;">${description}</p>
+              
+              <div style="text-align: center; margin: 30px 0;">
+                <a href="${ctaUrl}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">${ctaText}</a>
+              </div>
+              
+              <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+              <p style="font-size: 12px; color: #666; text-align: center;">
+                You're receiving this because you subscribed to Team Aeon updates.<br>
+                <a href="${unsubscribeUrl}" style="color: #888;">Unsubscribe</a>
+              </p>
+            </div>
+          `;
+        } else {
+          return res.status(400).json({ error: "Invalid email type" });
+        }
+        
         try {
           await sendEmail(subscriber.email, subject, htmlBody);
           sentCount++;

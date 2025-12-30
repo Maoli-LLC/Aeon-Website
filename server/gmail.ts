@@ -47,10 +47,11 @@ export async function getGmailClient() {
   return google.gmail({ version: 'v1', auth: oauth2Client });
 }
 
-export async function sendEmail(to: string, subject: string, htmlBody: string) {
+export async function sendEmail(to: string, subject: string, htmlBody: string, from: string = 'Team Aeon <iamsahlien@gmail.com>') {
   const gmail = await getGmailClient();
   
   const message = [
+    `From: ${from}`,
     `To: ${to}`,
     `Subject: ${subject}`,
     'Content-Type: text/html; charset=utf-8',

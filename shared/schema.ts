@@ -24,6 +24,8 @@ export const emailSubscribers = pgTable("email_subscribers", {
   id: serial("id").primaryKey(),
   email: varchar("email", { length: 255 }).notNull().unique(),
   name: varchar("name", { length: 255 }),
+  unsubscribeToken: varchar("unsubscribe_token", { length: 64 }),
+  marketingOptOut: boolean("marketing_opt_out").default(false),
   subscribedAt: timestamp("subscribed_at").defaultNow(),
 });
 
