@@ -112,6 +112,7 @@ function BlogsSection() {
   const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
   const [formData, setFormData] = useState({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false });
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'unpublished'>('all');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -180,7 +181,7 @@ function BlogsSection() {
     <div>
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Blog Posts</h2>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-wrap">
           <input
             type="text"
             placeholder="Search posts..."
@@ -188,6 +189,15 @@ function BlogsSection() {
             onChange={e => setSearchQuery(e.target.value)}
             className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white w-64"
           />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value as 'all' | 'published' | 'unpublished')}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+          >
+            <option value="all">All Posts</option>
+            <option value="published">Published Only</option>
+            <option value="unpublished">Unpublished Only</option>
+          </select>
           <button
             onClick={() => { setShowForm(true); setEditingPost(null); setFormData({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false }); }}
             className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
@@ -296,12 +306,16 @@ function BlogsSection() {
 
       <div className="space-y-4">
         {posts
-          .filter(post => 
-            searchQuery === '' || 
-            post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            post.category.toLowerCase().includes(searchQuery.toLowerCase())
-          )
+          .filter(post => {
+            const matchesSearch = searchQuery === '' || 
+              post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              post.category.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesStatus = statusFilter === 'all' || 
+              (statusFilter === 'published' && post.published) ||
+              (statusFilter === 'unpublished' && !post.published);
+            return matchesSearch && matchesStatus;
+          })
           .map(post => (
           <div key={post.id} className="bg-card border border-primary/20 rounded-lg p-4 flex justify-between items-start">
             <div>
