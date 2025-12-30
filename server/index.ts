@@ -724,6 +724,18 @@ async function main() {
     }
   });
 
+  // Delete webapp request
+  app.delete("/api/admin/webapp-requests/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(webAppRequests).where(eq(webAppRequests.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting webapp request:", error);
+      res.status(500).json({ message: "Failed to delete request" });
+    }
+  });
+
   // Send webapp quote email
   app.post("/api/admin/webapp-requests/:id/send-email", isAuthenticated, isOwner, async (req, res) => {
     try {

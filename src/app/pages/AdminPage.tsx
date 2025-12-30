@@ -1310,6 +1310,12 @@ function WebAppSection() {
     fetchRequests();
   };
 
+  const deleteRequest = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this request?')) return;
+    await fetch(`/api/admin/webapp-requests/${id}`, { method: 'DELETE' });
+    setRequests(requests.filter(r => r.id !== id));
+  };
+
   const sendQuoteEmail = async () => {
     if (!selectedRequest) return;
     setSending(true);
@@ -1451,6 +1457,12 @@ function WebAppSection() {
                     className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 text-sm"
                   >
                     Send Quote
+                  </button>
+                  <button
+                    onClick={() => deleteRequest(request.id)}
+                    className="px-3 py-2 text-sm border border-red-500 text-red-400 rounded hover:bg-red-500/20"
+                  >
+                    Delete
                   </button>
                 </div>
               </div>
