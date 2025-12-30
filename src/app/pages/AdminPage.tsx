@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber } from '@shared/schema';
+import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment } from '@shared/schema';
 
-type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers';
+type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers' | 'comments';
 
 export function AdminPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -70,8 +70,8 @@ export function AdminPage() {
           </div>
         </div>
 
-        <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4">
-          {(['blogs', 'dreams', 'music', 'subscribers'] as AdminTab[]).map(tab => (
+        <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4 flex-wrap">
+          {(['blogs', 'dreams', 'music', 'subscribers', 'comments'] as AdminTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -81,7 +81,7 @@ export function AdminPage() {
                   : 'border border-primary text-primary hover:bg-primary/10'
               }`}
             >
-              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : 'Email Subscribers'}
+              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'subscribers' ? 'Email Subscribers' : 'Comments'}
             </button>
           ))}
         </div>
@@ -90,6 +90,7 @@ export function AdminPage() {
         {activeTab === 'dreams' && <DreamsSection />}
         {activeTab === 'music' && <MusicSection />}
         {activeTab === 'subscribers' && <SubscribersSection />}
+        {activeTab === 'comments' && <CommentsSection />}
       </div>
     </div>
   );
@@ -389,6 +390,85 @@ function SubscribersSection() {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function CommentsSection() {
+  const [comments, setComments] = useState<BlogComment[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/admin/comments')
+      .then(res => res.json())
+      .then(data => { setComments(data); setLoading(false); });
+  }, []);
+
+  const updateStatus = async (id: number, status: string) => {
+    await fetch(`/api/admin/comments/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    setComments(comments.map(c => c.id === id ? { ...c, status } : c));
+  };
+
+  const deleteComment = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this comment?')) return;
+    await fetch(`/api/admin/comments/${id}`, { method: 'DELETE' });
+    setComments(comments.filter(c => c.id !== id));
+  };
+
+  if (loading) return <p className="text-white">Loading...</p>;
+
+  return (
+    <div>
+      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>Blog Comments ({comments.length})</h2>
+      <div className="space-y-4">
+        {comments.length === 0 ? (
+          <p className="text-white/80">No comments yet.</p>
+        ) : comments.map(comment => (
+          <div key={comment.id} className="bg-card border border-primary/20 rounded-lg p-6">
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex items-center gap-3">
+                {comment.userImage ? (
+                  <img src={comment.userImage} alt="" className="w-10 h-10 rounded-full" />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    {comment.userName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="text-primary font-medium">{comment.userName}</p>
+                  <p className="text-xs text-muted-foreground">Post ID: {comment.postId}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={comment.status || 'published'}
+                  onChange={e => updateStatus(comment.id, e.target.value)}
+                  className={`px-3 py-1 rounded text-sm border ${
+                    comment.status === 'published' ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400'
+                  } bg-background`}
+                >
+                  <option value="published">Published</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+                <button
+                  onClick={() => deleteComment(comment.id)}
+                  className="px-3 py-1 text-sm border border-red-500 text-red-400 rounded hover:bg-red-500/20"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+            <p className="text-white/90">{comment.content}</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              {new Date(comment.createdAt!).toLocaleString()}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );

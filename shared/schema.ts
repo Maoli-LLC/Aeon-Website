@@ -1,6 +1,6 @@
 export * from "./models/auth";
 
-import { pgTable, serial, varchar, text, timestamp, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, varchar, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
 import { users } from "./models/auth";
 
 // Blog posts for Sahlien Blog and Dream Blog
@@ -64,7 +64,7 @@ export type InsertMusicRequest = typeof musicRequests.$inferInsert;
 // Blog comments
 export const blogComments = pgTable("blog_comments", {
   id: serial("id").primaryKey(),
-  postId: serial("post_id").references(() => blogPosts.id),
+  postId: integer("post_id").notNull().references(() => blogPosts.id, { onDelete: 'cascade' }),
   userId: varchar("user_id").references(() => users.id),
   userName: varchar("user_name", { length: 255 }).notNull(),
   userImage: varchar("user_image", { length: 500 }),
