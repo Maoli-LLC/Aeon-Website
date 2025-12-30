@@ -10,6 +10,7 @@ import { PrivacyPage } from './pages/PrivacyPage';
 import { TermsPage } from './pages/TermsPage';
 import { AdminPage } from './pages/AdminPage';
 import { LoginPage } from './pages/LoginPage';
+import { WebAppServicePage } from './pages/WebAppServicePage';
 import '../styles/fonts.css';
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
           <Route path="dream-lattice" element={<DreamLatticePage />} />
           <Route path="store" element={<StorePage />} />
           <Route path="contact" element={<ContactPage />} />
+          <Route path="services" element={<WebAppServicePage />} />
           <Route path="privacy" element={<PrivacyPage />} />
           <Route path="terms" element={<TermsPage />} />
         </Route>

@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails } from "@shared/schema";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests } from "@shared/schema";
 import { eq, desc, and, lte } from "drizzle-orm";
 import { sendEmail } from "./gmail";
 
@@ -72,6 +72,29 @@ async function main() {
       res.json({ success: true, id: request.id });
     } catch (error) {
       console.error("Error creating music request:", error);
+      res.status(500).json({ message: "Failed to submit request" });
+    }
+  });
+
+  // Submit website/app creation request
+  app.post("/api/webapp-requests", async (req, res) => {
+    try {
+      const { email, name, projectType, description, functionality, colorPreferences, exampleSites } = req.body;
+      if (!email || !name || !projectType || !description || !functionality) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      const [request] = await db.insert(webAppRequests).values({
+        email,
+        name,
+        projectType,
+        description,
+        functionality,
+        colorPreferences,
+        exampleSites,
+      }).returning();
+      res.json({ success: true, id: request.id });
+    } catch (error) {
+      console.error("Error creating webapp request:", error);
       res.status(500).json({ message: "Failed to submit request" });
     }
   });
@@ -670,6 +693,98 @@ async function main() {
       res.json({ success: true, message: "Email sent successfully" });
     } catch (error) {
       console.error("Error sending music response email:", error);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
+  // Get all webapp requests (admin)
+  app.get("/api/admin/webapp-requests", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const requests = await db.select().from(webAppRequests).orderBy(desc(webAppRequests.createdAt));
+      res.json(requests);
+    } catch (error) {
+      console.error("Error fetching webapp requests:", error);
+      res.status(500).json({ message: "Failed to fetch requests" });
+    }
+  });
+
+  // Update webapp request status
+  app.put("/api/admin/webapp-requests/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, quoteResponse, stripePaymentLink, notes } = req.body;
+      const [request] = await db.update(webAppRequests)
+        .set({ status, quoteResponse, stripePaymentLink, notes, updatedAt: new Date() })
+        .where(eq(webAppRequests.id, id))
+        .returning();
+      res.json(request);
+    } catch (error) {
+      console.error("Error updating webapp request:", error);
+      res.status(500).json({ message: "Failed to update request" });
+    }
+  });
+
+  // Send webapp quote email
+  app.post("/api/admin/webapp-requests/:id/send-email", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { quoteResponse, stripePaymentLink } = req.body;
+      
+      const [request] = await db.select().from(webAppRequests).where(eq(webAppRequests.id, id));
+      if (!request) {
+        return res.status(404).json({ message: "Request not found" });
+      }
+
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Website & App Creation</h1>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Thank you for sharing your project vision with us. I've reviewed your request and have prepared a quote for you.</p>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Your Project:</h3>
+            <p style="color: #999; margin-top: 10px;"><strong>Type:</strong> ${request.projectType}</p>
+            <p style="font-style: italic; color: #ccc;">${request.description}</p>
+          </div>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">My Response & Quote:</h3>
+            <p style="line-height: 1.8; white-space: pre-wrap;">${quoteResponse}</p>
+          </div>
+          
+          ${stripePaymentLink ? `
+          <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Ready to Proceed?</h3>
+            <p style="font-size: 14px; color: #999; margin-bottom: 20px;">Click below to secure your project</p>
+            <a href="${stripePaymentLink}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Proceed to Payment</a>
+          </div>
+          ` : ''}
+          
+          <p style="font-size: 16px; line-height: 1.8;">If you have any questions or would like to discuss the project further, simply reply to this email.</p>
+          
+          <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
+          
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from Team Aeon Website & App Creation Services.</p>
+        </div>
+      `;
+      
+      await sendEmail(
+        request.email,
+        "Your Website/App Project Quote - Team Aeon",
+        htmlBody
+      );
+      
+      // Update status to quoted after sending
+      await db.update(webAppRequests)
+        .set({ status: 'quoted', quoteResponse, stripePaymentLink, updatedAt: new Date() })
+        .where(eq(webAppRequests.id, id));
+      
+      res.json({ success: true, message: "Quote email sent successfully" });
+    } catch (error) {
+      console.error("Error sending webapp quote email:", error);
       res.status(500).json({ message: "Failed to send email" });
     }
   });
