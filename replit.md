@@ -1,7 +1,16 @@
 # Team Aeon Website
 
 ## Overview
-This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a Team Aeon branded website featuring multiple pages including Homepage, Blog, Store, Contact, Music Creation, and Dream Lattice sections.
+This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a Team Aeon branded website featuring multiple pages including Homepage, Blog, Store, Contact, Music Creation, Dream Lattice, and Website/App Creation Services sections.
+
+## Features
+- **Dual Blog System**: Sahlien Blog and Dream Blog with keyword search
+- **Sovereign Dream Lattice**: Free dream interpretation service
+- **Music Creation**: Commission songs ($97) or albums ($444) with free lyrics
+- **Website/App Creation**: Free design concepts, then commission full build with custom Stripe payment links
+- **Admin Dashboard**: Content management with search, email functionality, and status tracking
+- **Email Marketing**: Newsletter system with scheduling capabilities
+- **Custom Login**: Gold "TA" branded login page with Replit OAuth
 
 ## Tech Stack
 - **Frontend Framework**: React 18 with TypeScript
