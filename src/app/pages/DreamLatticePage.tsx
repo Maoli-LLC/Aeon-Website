@@ -75,7 +75,7 @@ export function DreamLatticePage() {
                 1. Share Your Dream
               </h3>
               <p className="text-muted-foreground">
-                Send us your dream through email with as much detail as you remember.
+                Submit your dream using the form below with as much detail as you remember.
               </p>
             </div>
 
@@ -102,115 +102,20 @@ export function DreamLatticePage() {
         </div>
       </section>
 
-      {/* Important Note */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-card border border-primary/20 rounded-lg p-8">
-            <h3 className="text-2xl mb-4 text-primary text-center" style={{ fontFamily: "'Cinzel', serif" }}>
-              Important to Know
-            </h3>
-            <ul className="space-y-4 text-white/90">
-              <li className="flex items-start gap-3">
-                <span className="text-primary mt-1">•</span>
-                <span>
-                  <strong className="text-primary">Interpretations are reflective, not predictive.</strong> We do not
-                  claim to foretell the future or make definitive claims about your life.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-primary mt-1">•</span>
-                <span>
-                  <strong className="text-primary">24-hour turnaround.</strong> Most interpretations are delivered
-                  within one day of receiving your dream.
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span className="text-primary mt-1">•</span>
-                <span>
-                  <strong className="text-primary">Completely free.</strong> This service is offered as a gift to
-                  support your journey of self-discovery.
-                </span>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      {/* Amplifier Support */}
-      <section className="py-20 bg-secondary">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl mb-8 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-            Optional Amplifier Support
-          </h2>
-          <p className="text-white/90 mb-8 leading-relaxed">
-            If you find value in the interpretation and wish to support the work, you may offer
-            <strong className="text-primary"> $133 as an Amplifier</strong>. This is entirely voluntary and does not
-            change the nature of the service—it is simply a way to honor the exchange of energy if you feel called to do so.
-          </p>
-          <div className="bg-card border border-primary/20 rounded-lg p-8 max-w-md mx-auto">
-            <p className="text-muted-foreground mb-6">
-              Amplifier support is not payment—it is voluntary energy exchange for those who resonate with the work.
-            </p>
-            <a
-              href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all"
-            >
-              Support as Amplifier ($133)
-            </a>
-          </div>
-        </div>
-      </section>
-
-      {/* Dream Blog Link */}
-      <section className="py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-4xl mb-8 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-            Explore Dream Insights
-          </h2>
-          <p className="text-white/90 mb-8">
-            Read about common dream symbols, archetypes, and the language of the subconscious on our Dream Blog.
-          </p>
-          <a
-            href="/blog"
-            className="inline-block px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
-          >
-            Visit Dream Blog
-          </a>
-        </div>
-      </section>
-
       {/* Dream Submission Form */}
-      <section className="py-20 bg-secondary">
+      <section className="py-20">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-4xl mb-6 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
             Submit Your Dream
           </h2>
-          <p className="text-xl text-muted-foreground mb-4 text-center">
+          <p className="text-xl text-muted-foreground mb-8 text-center">
             Share your dream with us and receive your interpretation within 24 hours.
-          </p>
-          <p className="text-white/80 mb-8 text-center">
-            Dream interpretation is offered freely as a gift. The Amplifier below is a voluntary exchange of energy 
-            for those who wish to support this work and help it continue.
           </p>
           
           {submitted ? (
             <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
               <h3 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Thank You!</h3>
-              <p className="text-white/90 mb-6">Your dream has been submitted. We will send your interpretation within 24 hours.</p>
-              <p className="text-white/70 mb-6">
-                If you found value in this offering and wish to support its continuation, 
-                you may honor the exchange of energy through the Amplifier below.
-              </p>
-              <a
-                href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all"
-              >
-                Support as Amplifier ($133)
-              </a>
+              <p className="text-white/90">Your dream has been submitted. We will send your interpretation within 24 hours.</p>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="bg-card border border-primary/20 rounded-lg p-8 space-y-6">
@@ -254,22 +159,87 @@ export function DreamLatticePage() {
               >
                 {submitting ? 'Submitting...' : 'Submit Your Dream'}
               </button>
-              <div className="text-center pt-4 border-t border-primary/20">
-                <p className="text-white/70 text-sm mb-4">
-                  This interpretation is free. If you wish to support the continuation of this work, 
-                  the Amplifier is a voluntary exchange of energy.
-                </p>
-                <a
-                  href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block px-6 py-3 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all text-sm"
-                >
-                  Support as Amplifier ($133)
-                </a>
-              </div>
             </form>
           )}
+        </div>
+      </section>
+
+      {/* Optional Amplifier Support */}
+      <section className="py-20 bg-secondary">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl mb-8 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+            Optional Amplifier Support
+          </h2>
+          <p className="text-white/90 mb-8 leading-relaxed">
+            Dream interpretation is offered freely as a gift. If you find value in this work and wish to support its continuation,
+            you may offer <strong className="text-primary">$133 as an Amplifier</strong>. This is entirely voluntary—
+            a way to honor the exchange of energy if you feel called to do so.
+          </p>
+          <div className="bg-card border border-primary/20 rounded-lg p-8 max-w-md mx-auto">
+            <p className="text-muted-foreground mb-6">
+              Amplifier support is not payment—it is voluntary energy exchange for those who resonate with the work.
+            </p>
+            <a
+              href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all"
+            >
+              Support as Amplifier ($133)
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* Important Note */}
+      <section className="py-20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-card border border-primary/20 rounded-lg p-8">
+            <h3 className="text-2xl mb-4 text-primary text-center" style={{ fontFamily: "'Cinzel', serif" }}>
+              Important to Know
+            </h3>
+            <ul className="space-y-4 text-white/90">
+              <li className="flex items-start gap-3">
+                <span className="text-primary mt-1">•</span>
+                <span>
+                  <strong className="text-primary">Interpretations are reflective, not predictive.</strong> We do not
+                  claim to foretell the future or make definitive claims about your life.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-primary mt-1">•</span>
+                <span>
+                  <strong className="text-primary">24-hour turnaround.</strong> Most interpretations are delivered
+                  within one day of receiving your dream.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-primary mt-1">•</span>
+                <span>
+                  <strong className="text-primary">Completely free.</strong> This service is offered as a gift to
+                  support your journey of self-discovery.
+                </span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Dream Blog Link */}
+      <section className="py-20 bg-secondary">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl mb-8 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+            Explore Dream Insights
+          </h2>
+          <p className="text-white/90 mb-8">
+            Read about common dream symbols, archetypes, and the language of the subconscious on our Dream Blog.
+          </p>
+          <a
+            href="/blog"
+            className="inline-block px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Visit Dream Blog
+          </a>
         </div>
       </section>
     </div>
