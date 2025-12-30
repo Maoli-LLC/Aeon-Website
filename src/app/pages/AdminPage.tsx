@@ -3,7 +3,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { useUpload } from '@/hooks/use-upload';
 import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment } from '@shared/schema';
 
-type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers' | 'comments';
+type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers' | 'marketing' | 'comments';
 
 export function AdminPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -75,7 +75,7 @@ export function AdminPage() {
         </div>
 
         <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4 flex-wrap">
-          {(['blogs', 'dreams', 'music', 'subscribers', 'comments'] as AdminTab[]).map(tab => (
+          {(['blogs', 'dreams', 'music', 'subscribers', 'marketing', 'comments'] as AdminTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -85,7 +85,7 @@ export function AdminPage() {
                   : 'border border-primary text-primary hover:bg-primary/10'
               }`}
             >
-              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'subscribers' ? 'Email Subscribers' : 'Comments'}
+              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : 'Comments'}
             </button>
           ))}
         </div>
@@ -94,6 +94,7 @@ export function AdminPage() {
         {activeTab === 'dreams' && <DreamsSection />}
         {activeTab === 'music' && <MusicSection />}
         {activeTab === 'subscribers' && <SubscribersSection />}
+        {activeTab === 'marketing' && <EmailMarketingSection />}
         {activeTab === 'comments' && <CommentsSection />}
       </div>
     </div>
@@ -671,6 +672,12 @@ function SubscribersSection() {
       .then(data => { setSubscribers(data); setLoading(false); });
   }, []);
 
+  const deleteSubscriber = async (id: number) => {
+    if (!confirm('Are you sure you want to remove this subscriber?')) return;
+    await fetch(`/api/admin/subscribers/${id}`, { method: 'DELETE' });
+    setSubscribers(subscribers.filter(s => s.id !== id));
+  };
+
   if (loading) return <p className="text-white">Loading...</p>;
 
   return (
@@ -683,22 +690,288 @@ function SubscribersSection() {
               <th className="text-left px-4 py-3 text-primary">Email</th>
               <th className="text-left px-4 py-3 text-primary">Name</th>
               <th className="text-left px-4 py-3 text-primary">Subscribed</th>
+              <th className="text-left px-4 py-3 text-primary">Actions</th>
             </tr>
           </thead>
           <tbody>
             {subscribers.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-4 py-3 text-white/80 text-center">No subscribers yet.</td>
+                <td colSpan={4} className="px-4 py-3 text-white/80 text-center">No subscribers yet.</td>
               </tr>
             ) : subscribers.map(sub => (
               <tr key={sub.id} className="border-t border-primary/10">
                 <td className="px-4 py-3 text-white">{sub.email}</td>
                 <td className="px-4 py-3 text-white">{sub.name || '-'}</td>
                 <td className="px-4 py-3 text-muted-foreground">{new Date(sub.subscribedAt!).toLocaleDateString()}</td>
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => deleteSubscriber(sub.id)}
+                    className="px-3 py-1 text-sm border border-red-500 text-red-400 rounded hover:bg-red-500/20"
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+function EmailMarketingSection() {
+  const [emailType, setEmailType] = useState<'blog' | 'product'>('blog');
+  const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
+  const [selectedPostId, setSelectedPostId] = useState<number | null>(null);
+  const [productTitle, setProductTitle] = useState('');
+  const [productDescription, setProductDescription] = useState('');
+  const [productImageUrl, setProductImageUrl] = useState('');
+  const [linkDestination, setLinkDestination] = useState<'store' | 'blog'>('store');
+  const [selectedBlogForLink, setSelectedBlogForLink] = useState<number | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [subscriberCount, setSubscriberCount] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setProductImageUrl(response.objectPath);
+    },
+  });
+
+  useEffect(() => {
+    fetch('/api/admin/blog-posts')
+      .then(res => res.json())
+      .then(data => setBlogPosts(data.filter((p: BlogPost) => p.published)));
+    fetch('/api/admin/subscribers')
+      .then(res => res.json())
+      .then(data => setSubscriberCount(data.length));
+  }, []);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadFile(file);
+    }
+  };
+
+  const sendMarketingEmail = async () => {
+    setSending(true);
+    setSendResult(null);
+    
+    try {
+      const payload = emailType === 'blog' 
+        ? { type: 'blog', postId: selectedPostId }
+        : { 
+            type: 'product', 
+            title: productTitle, 
+            description: productDescription, 
+            imageUrl: productImageUrl,
+            linkDestination,
+            linkedPostId: linkDestination === 'blog' ? selectedBlogForLink : null
+          };
+      
+      const res = await fetch('/api/admin/send-marketing-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      
+      const data = await res.json();
+      if (res.ok) {
+        setSendResult({ success: true, message: `Email sent successfully to ${data.sentCount} subscribers!` });
+        if (emailType === 'product') {
+          setProductTitle('');
+          setProductDescription('');
+          setProductImageUrl('');
+        }
+      } else {
+        setSendResult({ success: false, message: data.error || 'Failed to send emails' });
+      }
+    } catch (error) {
+      setSendResult({ success: false, message: 'An error occurred while sending emails' });
+    }
+    
+    setSending(false);
+  };
+
+  const canSend = emailType === 'blog' 
+    ? selectedPostId !== null 
+    : productTitle.trim() && productDescription.trim();
+
+  return (
+    <div>
+      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>Email Marketing</h2>
+      
+      <div className="bg-card border border-primary/20 rounded-lg p-6">
+        <div className="mb-6">
+          <p className="text-muted-foreground mb-4">
+            Send emails to <span className="text-primary font-semibold">{subscriberCount}</span> subscribers
+          </p>
+          
+          <div className="flex gap-4 mb-6">
+            <button
+              onClick={() => setEmailType('blog')}
+              className={`px-6 py-3 rounded-md transition-all ${
+                emailType === 'blog' ? 'bg-primary text-black' : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+            >
+              Share Blog Post
+            </button>
+            <button
+              onClick={() => setEmailType('product')}
+              className={`px-6 py-3 rounded-md transition-all ${
+                emailType === 'product' ? 'bg-primary text-black' : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+            >
+              New Product Announcement
+            </button>
+          </div>
+        </div>
+
+        {emailType === 'blog' ? (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-primary mb-2">Select Blog Post to Share</label>
+              <select
+                value={selectedPostId || ''}
+                onChange={e => setSelectedPostId(e.target.value ? Number(e.target.value) : null)}
+                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
+              >
+                <option value="">-- Select a published blog post --</option>
+                {blogPosts.map(post => (
+                  <option key={post.id} value={post.id}>{post.title} ({post.category})</option>
+                ))}
+              </select>
+            </div>
+            
+            {selectedPostId && (
+              <div className="bg-secondary rounded-lg p-4">
+                <h4 className="text-primary mb-2">Preview:</h4>
+                {(() => {
+                  const post = blogPosts.find(p => p.id === selectedPostId);
+                  return post ? (
+                    <div>
+                      <p className="text-white font-semibold">{post.title}</p>
+                      <p className="text-muted-foreground text-sm mt-1">{post.excerpt}</p>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-primary mb-2">Product Image</label>
+              <div className="flex items-center gap-4">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 disabled:opacity-50"
+                >
+                  {isUploading ? 'Uploading...' : 'Choose Image'}
+                </button>
+                {productImageUrl && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-500 text-sm">Image uploaded</span>
+                    <button
+                      type="button"
+                      onClick={() => setProductImageUrl('')}
+                      className="text-red-500 text-sm hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
+              </div>
+              {productImageUrl && (
+                <img 
+                  src={productImageUrl} 
+                  alt="Preview" 
+                  className="mt-2 max-h-32 rounded-md border border-primary/20"
+                />
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-primary mb-2">Product Title</label>
+              <input
+                type="text"
+                value={productTitle}
+                onChange={e => setProductTitle(e.target.value)}
+                placeholder="Enter product name"
+                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-primary mb-2">Product Description</label>
+              <textarea
+                value={productDescription}
+                onChange={e => setProductDescription(e.target.value)}
+                placeholder="Describe the product..."
+                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white h-32"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-primary mb-2">Link Destination</label>
+              <select
+                value={linkDestination}
+                onChange={e => setLinkDestination(e.target.value as 'store' | 'blog')}
+                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
+              >
+                <option value="store">Store Page</option>
+                <option value="blog">Blog Post</option>
+              </select>
+            </div>
+            
+            {linkDestination === 'blog' && (
+              <div>
+                <label className="block text-primary mb-2">Select Blog Post to Link</label>
+                <select
+                  value={selectedBlogForLink || ''}
+                  onChange={e => setSelectedBlogForLink(e.target.value ? Number(e.target.value) : null)}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white"
+                >
+                  <option value="">-- Select a blog post --</option>
+                  {blogPosts.map(post => (
+                    <option key={post.id} value={post.id}>{post.title}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {sendResult && (
+          <div className={`mt-6 px-4 py-3 rounded-md border ${
+            sendResult.success 
+              ? 'bg-green-500/20 border-green-500 text-green-400' 
+              : 'bg-red-500/20 border-red-500 text-red-400'
+          }`}>
+            {sendResult.message}
+          </div>
+        )}
+        
+        <div className="mt-6">
+          <button
+            onClick={sendMarketingEmail}
+            disabled={sending || !canSend}
+            className="w-full px-6 py-4 bg-primary text-black rounded-md hover:bg-primary/90 disabled:opacity-50 transition-all text-lg font-medium"
+          >
+            {sending ? 'Sending to all subscribers...' : `Send Email to ${subscriberCount} Subscribers`}
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 
 interface BlogPost {
@@ -6,6 +7,7 @@ interface BlogPost {
   title: string;
   excerpt: string;
   content: string | null;
+  imageUrl: string | null;
   category: string;
   published: boolean;
   createdAt: string;
@@ -24,6 +26,7 @@ interface Comment {
 
 export function BlogPage() {
   const { user, isLoading: authLoading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'sahlien' | 'dream'>('sahlien');
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,6 +36,7 @@ export function BlogPage() {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [initialPostLoaded, setInitialPostLoaded] = useState(false);
 
   const filteredPosts = posts.filter(post => {
     if (!searchQuery.trim()) return true;
@@ -50,6 +54,33 @@ export function BlogPage() {
       .then(data => {
         setPosts(data);
         setLoading(false);
+        
+        // Check for post parameter in URL and auto-open that post
+        const postId = searchParams.get('post');
+        if (postId && !initialPostLoaded) {
+          const targetPost = data.find((p: BlogPost) => p.id === parseInt(postId));
+          if (targetPost) {
+            viewPost(targetPost);
+            setInitialPostLoaded(true);
+            // Clear the URL parameter after loading
+            setSearchParams({});
+          } else {
+            // Post not in current category, try fetching from the other category
+            const otherCategory = activeTab === 'sahlien' ? 'dream' : 'sahlien';
+            fetch(`/api/blog-posts?category=${otherCategory}`)
+              .then(res => res.json())
+              .then(otherData => {
+                const foundPost = otherData.find((p: BlogPost) => p.id === parseInt(postId));
+                if (foundPost) {
+                  setActiveTab(otherCategory);
+                  setPosts(otherData);
+                  viewPost(foundPost);
+                  setInitialPostLoaded(true);
+                  setSearchParams({});
+                }
+              });
+          }
+        }
       })
       .catch(() => setLoading(false));
   }, [activeTab]);
