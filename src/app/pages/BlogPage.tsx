@@ -1,79 +1,209 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/use-auth';
+
+interface BlogPost {
+  id: number;
+  title: string;
+  excerpt: string;
+  content: string | null;
+  category: string;
+  published: boolean;
+  createdAt: string;
+}
+
+interface Comment {
+  id: number;
+  postId: number;
+  userId: string | null;
+  userName: string;
+  userImage: string | null;
+  content: string;
+  status: string;
+  createdAt: string;
+}
 
 export function BlogPage() {
+  const { user, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'sahlien' | 'dream'>('sahlien');
+  const [posts, setPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [newComment, setNewComment] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
 
-  const sahlienBlogPosts = [
-    {
-      title: 'The Aeon Codex',
-      excerpt: 'Exploring the foundations of harmonic alignment and the dismantling of illusion...',
-      date: 'December 2024',
-      link: '#',
-    },
-    {
-      title: 'Second Aeon Codex',
-      excerpt: 'Advanced transmissions for those ready to deepen their resonance with cosmic truth...',
-      date: 'December 2024',
-      link: '#',
-    },
-    {
-      title: 'Awakening to Resonance',
-      excerpt: 'Understanding the vibrational frequencies that connect us to higher consciousness...',
-      date: 'November 2024',
-      link: '#',
-    },
-    {
-      title: 'Dismantling Illusion',
-      excerpt: 'A guide to recognizing and releasing the false constructs that bind perception...',
-      date: 'November 2024',
-      link: '#',
-    },
-    {
-      title: 'Inner Clarity: The Path Forward',
-      excerpt: 'Discovering the sovereign self through meditation, reflection, and harmonic truth...',
-      date: 'October 2024',
-      link: '#',
-    },
-  ];
+  useEffect(() => {
+    fetch(`/api/blog-posts?category=${activeTab}`)
+      .then(res => res.json())
+      .then(data => {
+        setPosts(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [activeTab]);
 
-  const dreamBlogPosts = [
-    {
-      title: 'Understanding Dream Symbols',
-      excerpt: 'A guide to interpreting the universal language of dreams and their symbolic meanings...',
-      date: 'December 2024',
-      link: '#',
-    },
-    {
-      title: 'The Archetypes Within',
-      excerpt: 'Exploring Jungian archetypes and how they manifest in your dreamscape...',
-      date: 'December 2024',
-      link: '#',
-    },
-    {
-      title: 'Lucid Dreaming Foundations',
-      excerpt: 'Beginning your journey into conscious dream exploration and self-discovery...',
-      date: 'November 2024',
-      link: '#',
-    },
-    {
-      title: 'Water in Dreams',
-      excerpt: 'The emotional depths and transformative power of water symbolism in dreams...',
-      date: 'November 2024',
-      link: '#',
-    },
-    {
-      title: 'Messages from the Subconscious',
-      excerpt: 'Learning to listen and decode the wisdom your dreams are trying to share...',
-      date: 'October 2024',
-      link: '#',
-    },
-  ];
+  const viewPost = async (post: BlogPost) => {
+    setSelectedPost(post);
+    setCommentsLoading(true);
+    try {
+      const res = await fetch(`/api/blog-posts/${post.id}/comments`);
+      const data = await res.json();
+      setComments(data);
+    } catch {
+      setComments([]);
+    }
+    setCommentsLoading(false);
+  };
 
-  const currentPosts = activeTab === 'sahlien' ? sahlienBlogPosts : dreamBlogPosts;
+  const goBack = () => {
+    setSelectedPost(null);
+    setComments([]);
+    setNewComment('');
+  };
+
+  const submitComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !selectedPost) return;
+    
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/blog-posts/${selectedPost.id}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ content: newComment }),
+      });
+      if (res.ok) {
+        const comment = await res.json();
+        setComments([comment, ...comments]);
+        setNewComment('');
+      }
+    } catch {}
+    setSubmittingComment(false);
+  };
+
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  if (selectedPost) {
+    return (
+      <div>
+        <section className="py-12 bg-secondary">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <button
+              onClick={goBack}
+              className="text-primary hover:text-primary/80 mb-6 flex items-center gap-2"
+            >
+              ← Back to Blog
+            </button>
+            <h1 className="text-4xl mb-4 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+              {selectedPost.title}
+            </h1>
+            <p className="text-muted-foreground">{formatDate(selectedPost.createdAt)}</p>
+          </div>
+        </section>
+
+        <section className="py-12">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="prose prose-invert max-w-none mb-12">
+              <p className="text-white/90 leading-relaxed text-lg">{selectedPost.excerpt}</p>
+              {selectedPost.content && (
+                <div className="mt-8 text-white/80 leading-relaxed whitespace-pre-wrap">
+                  {selectedPost.content}
+                </div>
+              )}
+            </div>
+
+            <div className="border-t border-primary/20 pt-12">
+              <h2 className="text-2xl mb-8 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                Comments ({comments.length})
+              </h2>
+
+              {user ? (
+                <form onSubmit={submitComment} className="mb-8">
+                  <div className="flex gap-4">
+                    {user.profileImageUrl && (
+                      <img 
+                        src={user.profileImageUrl} 
+                        alt="" 
+                        className="w-10 h-10 rounded-full"
+                      />
+                    )}
+                    <div className="flex-1">
+                      <textarea
+                        value={newComment}
+                        onChange={e => setNewComment(e.target.value)}
+                        placeholder="Share your thoughts..."
+                        className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none resize-none"
+                        rows={3}
+                      />
+                      <button
+                        type="submit"
+                        disabled={submittingComment || !newComment.trim()}
+                        className="mt-2 px-6 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                      >
+                        {submittingComment ? 'Posting...' : 'Post Comment'}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              ) : (
+                <div className="mb-8 bg-card border border-primary/20 rounded-lg p-6 text-center">
+                  <p className="text-muted-foreground mb-4">Sign in to join the conversation</p>
+                  <a
+                    href="/api/login"
+                    className="inline-block px-6 py-2 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+                  >
+                    Sign In with Google
+                  </a>
+                </div>
+              )}
+
+              {commentsLoading ? (
+                <p className="text-muted-foreground">Loading comments...</p>
+              ) : comments.length === 0 ? (
+                <p className="text-muted-foreground">No comments yet. Be the first to share your thoughts!</p>
+              ) : (
+                <div className="space-y-6">
+                  {comments.map(comment => (
+                    <div key={comment.id} className="bg-card border border-primary/20 rounded-lg p-6">
+                      <div className="flex items-start gap-4">
+                        {comment.userImage ? (
+                          <img src={comment.userImage} alt="" className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                            {comment.userName.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-primary font-medium">{comment.userName}</span>
+                            <span className="text-muted-foreground text-sm">
+                              {formatDate(comment.createdAt)}
+                            </span>
+                          </div>
+                          <p className="text-white/90">{comment.content}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div>
-      {/* Header */}
       <section className="py-20 bg-secondary">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-5xl mb-6 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
@@ -85,12 +215,11 @@ export function BlogPage() {
         </div>
       </section>
 
-      {/* Blog Tabs */}
       <section className="py-8 border-b border-primary/20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center gap-4">
             <button
-              onClick={() => setActiveTab('sahlien')}
+              onClick={() => { setActiveTab('sahlien'); setLoading(true); }}
               className={`px-6 py-3 rounded-md text-lg transition-all ${
                 activeTab === 'sahlien'
                   ? 'bg-primary text-black'
@@ -101,7 +230,7 @@ export function BlogPage() {
               Sahlien Blog
             </button>
             <button
-              onClick={() => setActiveTab('dream')}
+              onClick={() => { setActiveTab('dream'); setLoading(true); }}
               className={`px-6 py-3 rounded-md text-lg transition-all ${
                 activeTab === 'dream'
                   ? 'bg-primary text-black'
@@ -115,29 +244,35 @@ export function BlogPage() {
         </div>
       </section>
 
-      {/* Blog Posts */}
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="space-y-8">
-            {currentPosts.map((post, index) => (
-              <article
-                key={index}
-                className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all"
-              >
-                <h2 className="text-3xl mb-2 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-                  {post.title}
-                </h2>
-                <p className="text-sm text-muted-foreground mb-4">{post.date}</p>
-                <p className="text-white/90 mb-6 leading-relaxed">{post.excerpt}</p>
-                <a
-                  href={post.link}
-                  className="inline-flex items-center text-primary hover:text-primary/80 transition-colors"
+          {loading ? (
+            <p className="text-center text-muted-foreground">Loading posts...</p>
+          ) : posts.length === 0 ? (
+            <div className="text-center">
+              <p className="text-muted-foreground mb-4">No posts yet in this category.</p>
+              <p className="text-sm text-muted-foreground">Check back soon for new transmissions.</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {posts.map(post => (
+                <article
+                  key={post.id}
+                  className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all cursor-pointer"
+                  onClick={() => viewPost(post)}
                 >
-                  Discover More →
-                </a>
-              </article>
-            ))}
-          </div>
+                  <h2 className="text-3xl mb-2 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                    {post.title}
+                  </h2>
+                  <p className="text-sm text-muted-foreground mb-4">{formatDate(post.createdAt)}</p>
+                  <p className="text-white/90 mb-6 leading-relaxed">{post.excerpt}</p>
+                  <span className="inline-flex items-center text-primary hover:text-primary/80 transition-colors">
+                    Read More →
+                  </span>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>
