@@ -75,7 +75,7 @@ export function WebAppServicePage() {
             </p>
             <p className="text-white/90 leading-relaxed mb-6">
               If the design resonates with you, you can commission me to build the full working website or app. 
-              Each project is <strong className="text-primary">handcrafted with intention</strong>, no AI, no templates - just authentic digital craftsmanship.
+              Each project is <strong className="text-primary">crafted with intention</strong> to authentically represent your vision.
             </p>
           </div>
         </div>
@@ -226,12 +226,11 @@ export function WebAppServicePage() {
           </h2>
           <div className="prose prose-invert prose-lg max-w-none">
             <p className="text-white/90 leading-relaxed mb-6">
-              Every project is created with <strong className="text-primary">intention and authenticity</strong>. 
-              No AI-generated code, no cookie-cutter templates - just handcrafted digital experiences 
-              that reflect your unique vision.
+              Every project is created with <strong className="text-primary">intention and authenticity</strong>, 
+              designed to reflect your unique vision and serve your audience.
             </p>
             <p className="text-white/90 leading-relaxed">
-              Your investment supports genuine craftsmanship and ensures a product that truly represents you.
+              Your investment ensures a product that truly represents you and your creative purpose.
             </p>
           </div>
         </div>
