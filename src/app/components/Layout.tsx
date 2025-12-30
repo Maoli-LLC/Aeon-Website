@@ -40,6 +40,7 @@ export function Layout() {
     { name: 'Home', path: '/' },
     { name: 'Sovereign Dream Lattice', path: '/dream-lattice' },
     { name: 'Music Creation', path: '/music' },
+    { name: 'Web Services', path: '/services' },
     { name: 'Store', path: '/store' },
     { name: 'Blog', path: '/blog' },
     { name: 'Contact', path: '/contact' },
@@ -221,6 +222,7 @@ export function Layout() {
               <ul className="space-y-2">
                 <li><Link to="/dream-lattice" className="text-muted-foreground hover:text-primary transition-colors">Dream Interpretation</Link></li>
                 <li><Link to="/music" className="text-muted-foreground hover:text-primary transition-colors">Music Creation</Link></li>
+                <li><Link to="/services" className="text-muted-foreground hover:text-primary transition-colors">Website & App Creation</Link></li>
                 <li><Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">Contact</Link></li>
               </ul>
             </div>

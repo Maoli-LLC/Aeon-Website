@@ -4,9 +4,9 @@ import { useUpload } from '@/hooks/use-upload';
 import { Calendar } from '@/app/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
 import { format } from 'date-fns';
-import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment } from '@shared/schema';
+import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment, WebAppRequest } from '@shared/schema';
 
-type AdminTab = 'blogs' | 'dreams' | 'music' | 'subscribers' | 'marketing' | 'comments';
+type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments';
 
 export function AdminPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -78,7 +78,7 @@ export function AdminPage() {
         </div>
 
         <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4 flex-wrap">
-          {(['blogs', 'dreams', 'music', 'subscribers', 'marketing', 'comments'] as AdminTab[]).map(tab => (
+          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments'] as AdminTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -88,7 +88,7 @@ export function AdminPage() {
                   : 'border border-primary text-primary hover:bg-primary/10'
               }`}
             >
-              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : 'Comments'}
+              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : 'Comments'}
             </button>
           ))}
         </div>
@@ -96,6 +96,7 @@ export function AdminPage() {
         {activeTab === 'blogs' && <BlogsSection />}
         {activeTab === 'dreams' && <DreamsSection />}
         {activeTab === 'music' && <MusicSection />}
+        {activeTab === 'webapp' && <WebAppSection />}
         {activeTab === 'subscribers' && <SubscribersSection />}
         {activeTab === 'marketing' && <EmailMarketingSection />}
         {activeTab === 'comments' && <CommentsSection />}
@@ -1276,6 +1277,204 @@ function CommentsSection() {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+function WebAppSection() {
+  const [requests, setRequests] = useState<WebAppRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedRequest, setSelectedRequest] = useState<WebAppRequest | null>(null);
+  const [quoteResponse, setQuoteResponse] = useState('');
+  const [stripePaymentLink, setStripePaymentLink] = useState('');
+  const [sending, setSending] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    fetchRequests();
+  }, []);
+
+  const fetchRequests = async () => {
+    const res = await fetch('/api/admin/webapp-requests');
+    const data = await res.json();
+    setRequests(data);
+    setLoading(false);
+  };
+
+  const updateStatus = async (id: number, status: string) => {
+    await fetch(`/api/admin/webapp-requests/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    fetchRequests();
+  };
+
+  const sendQuoteEmail = async () => {
+    if (!selectedRequest) return;
+    setSending(true);
+    try {
+      await fetch(`/api/admin/webapp-requests/${selectedRequest.id}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quoteResponse, stripePaymentLink }),
+      });
+      alert('Quote email sent successfully!');
+      setSelectedRequest(null);
+      setQuoteResponse('');
+      setStripePaymentLink('');
+      fetchRequests();
+    } catch (error) {
+      alert('Failed to send email');
+    }
+    setSending(false);
+  };
+
+  const filteredRequests = requests.filter(r => 
+    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    r.projectType.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (loading) return <p className="text-white">Loading...</p>;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Website/App Requests ({requests.length})</h2>
+        <input
+          type="text"
+          placeholder="Search requests..."
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none w-64"
+        />
+      </div>
+
+      {selectedRequest ? (
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Send Quote to {selectedRequest.name}</h3>
+            <button
+              onClick={() => {
+                setSelectedRequest(null);
+                setQuoteResponse('');
+                setStripePaymentLink('');
+              }}
+              className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10"
+            >
+              Cancel
+            </button>
+          </div>
+
+          <div className="bg-background/50 rounded p-4 mb-6">
+            <p className="text-muted-foreground mb-2"><strong>Project Type:</strong> {selectedRequest.projectType}</p>
+            <p className="text-muted-foreground mb-2"><strong>Description:</strong></p>
+            <p className="text-white/90 mb-4">{selectedRequest.description}</p>
+            <p className="text-muted-foreground mb-2"><strong>Functionality:</strong></p>
+            <p className="text-white/90 mb-4">{selectedRequest.functionality}</p>
+            {selectedRequest.colorPreferences && (
+              <p className="text-muted-foreground"><strong>Color Preferences:</strong> {selectedRequest.colorPreferences}</p>
+            )}
+            {selectedRequest.exampleSites && (
+              <>
+                <p className="text-muted-foreground mt-2"><strong>Example Sites:</strong></p>
+                <p className="text-white/90">{selectedRequest.exampleSites}</p>
+              </>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-primary mb-2">Your Quote Response</label>
+              <textarea
+                value={quoteResponse}
+                onChange={e => setQuoteResponse(e.target.value)}
+                placeholder="Describe the design concept, scope, timeline, and price..."
+                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-48"
+              />
+            </div>
+            <div>
+              <label className="block text-primary mb-2">Stripe Payment Link (optional)</label>
+              <input
+                type="url"
+                value={stripePaymentLink}
+                onChange={e => setStripePaymentLink(e.target.value)}
+                placeholder="https://buy.stripe.com/..."
+                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+              />
+              <p className="text-xs text-muted-foreground mt-1">Create a payment link in Stripe Dashboard and paste it here</p>
+            </div>
+            <button
+              onClick={sendQuoteEmail}
+              disabled={sending || !quoteResponse}
+              className="px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 disabled:opacity-50"
+            >
+              {sending ? 'Sending...' : 'Send Quote Email'}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredRequests.length === 0 ? (
+            <p className="text-white/80">No requests found.</p>
+          ) : filteredRequests.map(request => (
+            <div key={request.id} className="bg-card border border-primary/20 rounded-lg p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <p className="text-primary font-medium">{request.name}</p>
+                  <p className="text-muted-foreground text-sm">{request.email}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Type: {request.projectType} | {new Date(request.createdAt!).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={request.status || 'pending'}
+                    onChange={e => updateStatus(request.id, e.target.value)}
+                    className={`px-3 py-1 rounded text-sm border ${
+                      request.status === 'completed' ? 'border-green-500 text-green-400' :
+                      request.status === 'quoted' ? 'border-blue-500 text-blue-400' :
+                      request.status === 'in_progress' ? 'border-yellow-500 text-yellow-400' :
+                      'border-primary text-primary'
+                    } bg-background`}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="quoted">Quoted</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                  <button
+                    onClick={() => setSelectedRequest(request)}
+                    className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 text-sm"
+                  >
+                    Send Quote
+                  </button>
+                </div>
+              </div>
+              <div className="mb-4">
+                <p className="text-muted-foreground text-sm mb-1">Description:</p>
+                <p className="text-white/90">{request.description}</p>
+              </div>
+              <div className="mb-4">
+                <p className="text-muted-foreground text-sm mb-1">Functionality:</p>
+                <p className="text-white/90">{request.functionality}</p>
+              </div>
+              {request.colorPreferences && (
+                <p className="text-muted-foreground text-sm">Colors: {request.colorPreferences}</p>
+              )}
+              {request.quoteResponse && (
+                <div className="mt-4 p-3 bg-background/50 rounded">
+                  <p className="text-muted-foreground text-sm mb-1">Quote Sent:</p>
+                  <p className="text-white/80 text-sm whitespace-pre-wrap">{request.quoteResponse}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
