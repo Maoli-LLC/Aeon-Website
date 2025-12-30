@@ -133,6 +133,11 @@ export function BlogPage() {
     });
   };
 
+  const truncateText = (text: string, maxLength: number = 150) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength).trim() + '...';
+  };
+
   const formatContent = (content: string) => {
     const paragraphs = content.split(/\n\n+/);
     
@@ -414,9 +419,9 @@ export function BlogPage() {
                     {post.title}
                   </h2>
                   <p className="text-sm text-muted-foreground mb-4">{formatDate(post.createdAt)}</p>
-                  <p className="text-white/90 mb-6 leading-relaxed">{post.excerpt}</p>
+                  <p className="text-white/90 mb-6 leading-relaxed">{truncateText(post.excerpt, 180)}</p>
                   <span className="inline-flex items-center text-primary hover:text-primary/80 transition-colors">
-                    Read More →
+                    Read Full Post →
                   </span>
                 </article>
               ))}
