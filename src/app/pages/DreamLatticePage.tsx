@@ -187,44 +187,62 @@ export function DreamLatticePage() {
           <h2 className="text-4xl mb-6 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
             Submit Your Dream
           </h2>
-          <p className="text-xl text-muted-foreground mb-8 text-center">
+          <p className="text-xl text-muted-foreground mb-4 text-center">
             Share your dream with us and receive your interpretation within 24 hours.
+          </p>
+          <p className="text-white/80 mb-8 text-center">
+            Dream interpretation is offered freely as a gift. The Amplifier below is a voluntary exchange of energy 
+            for those who wish to support this work and help it continue.
           </p>
           
           {submitted ? (
             <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
               <h3 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Thank You!</h3>
-              <p className="text-white/90">Your dream has been submitted. We will send your interpretation within 24 hours.</p>
+              <p className="text-white/90 mb-6">Your dream has been submitted. We will send your interpretation within 24 hours.</p>
+              <p className="text-white/70 mb-6">
+                If you found value in this offering and wish to support its continuation, 
+                you may honor the exchange of energy through the Amplifier below.
+              </p>
+              <a
+                href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all"
+              >
+                Support as Amplifier ($133)
+              </a>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="bg-card border border-primary/20 rounded-lg p-8 space-y-6">
               <div>
-                <label className="block text-primary mb-2">Your Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={e => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-primary mb-2">Your Email</label>
+                <label className="block text-primary mb-2">Email</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={e => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  placeholder="your@email.com"
                   required
                 />
               </div>
               <div>
-                <label className="block text-primary mb-2">Describe Your Dream</label>
+                <label className="block text-primary mb-2">Sovereign Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  placeholder="How you wish to be addressed"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-primary mb-2">Your Dream</label>
                 <textarea
                   value={formData.dreamDescription}
                   onChange={e => setFormData({ ...formData, dreamDescription: e.target.value })}
                   className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-48"
-                  placeholder="Share as much detail as you remember..."
+                  placeholder="Describe your dream in as much detail as you remember..."
                   required
                 />
               </div>
@@ -236,6 +254,20 @@ export function DreamLatticePage() {
               >
                 {submitting ? 'Submitting...' : 'Submit Your Dream'}
               </button>
+              <div className="text-center pt-4 border-t border-primary/20">
+                <p className="text-white/70 text-sm mb-4">
+                  This interpretation is free. If you wish to support the continuation of this work, 
+                  the Amplifier is a voluntary exchange of energy.
+                </p>
+                <a
+                  href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all text-sm"
+                >
+                  Support as Amplifier ($133)
+                </a>
+              </div>
             </form>
           )}
         </div>
