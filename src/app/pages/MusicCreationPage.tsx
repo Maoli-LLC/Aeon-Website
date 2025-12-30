@@ -57,20 +57,110 @@ export function MusicCreationPage() {
               These words are crafted to resonate with your intention, creating a foundation for co-creation.
             </p>
             <p className="text-white/90 leading-relaxed mb-6">
-              If the lyrics resonate with you, we can then bring them to life through full musical production.
-              This is not a transaction—it is a <strong className="text-primary">co-creation</strong>, a collaboration between
-              your vision and harmonic expression.
+              <strong className="text-primary">Lyrics are always free.</strong> If the lyrics resonate with you and you wish to bring them to life 
+              through full musical production, you can commission the song creation. This is not a transaction—it is a 
+              <strong className="text-primary"> co-creation</strong>, a collaboration between your vision and harmonic expression.
             </p>
           </div>
         </div>
       </section>
 
-      {/* Pricing */}
+      {/* Music Request Form */}
       <section className="py-20 bg-secondary">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl mb-12 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-            Investment Options
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl mb-6 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+            Request a Commission
           </h2>
+          <p className="text-xl text-muted-foreground mb-4 text-center">
+            Share your vision and we'll begin the co-creation process.
+          </p>
+          <p className="text-white/80 mb-8 text-center">
+            Start with free lyrics tailored to your vision. If you love them, you can commission the full song production.
+          </p>
+          
+          {submitted ? (
+            <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
+              <h3 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Thank You!</h3>
+              <p className="text-white/90">Your request has been submitted. We will reach out within 24-48 hours with your free lyrics.</p>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="bg-card border border-primary/20 rounded-lg p-8 space-y-6">
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-primary mb-2">Your Name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={e => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-primary mb-2">Your Email</label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={e => setFormData({ ...formData, email: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-primary mb-2">Describe Your Vision</label>
+                <textarea
+                  value={formData.description}
+                  onChange={e => setFormData({ ...formData, description: e.target.value })}
+                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-32"
+                  placeholder="What kind of song or album are you envisioning?"
+                  required
+                />
+              </div>
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-primary mb-2">Mood/Feeling (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.mood}
+                    onChange={e => setFormData({ ...formData, mood: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                    placeholder="e.g., Uplifting, Meditative, Powerful"
+                  />
+                </div>
+                <div>
+                  <label className="block text-primary mb-2">Purpose (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData.purpose}
+                    onChange={e => setFormData({ ...formData, purpose: e.target.value })}
+                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                    placeholder="e.g., Personal healing, Event, Gift"
+                  />
+                </div>
+              </div>
+              {error && <p className="text-red-400 text-center">{error}</p>}
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                {submitting ? 'Submitting...' : 'Submit Request'}
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
+
+      {/* Commission Options */}
+      <section className="py-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-4xl mb-8 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+            Commission Options
+          </h2>
+          <p className="text-white/80 mb-12 text-center max-w-2xl mx-auto">
+            After receiving your free lyrics, choose from the options below to commission the full song creation.
+          </p>
           <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto mb-12">
             <div className="bg-card border border-primary/20 rounded-lg p-8">
               <div className="text-center">
@@ -142,7 +232,7 @@ export function MusicCreationPage() {
       </section>
 
       {/* SoundCloud Examples */}
-      <section className="py-20">
+      <section className="py-20 bg-secondary">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-4xl mb-12 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
             Listen to Examples
@@ -162,90 +252,6 @@ export function MusicCreationPage() {
               </a>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Music Request Form */}
-      <section className="py-20 bg-secondary">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl mb-6 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-            Request a Commission
-          </h2>
-          <p className="text-xl text-muted-foreground mb-8 text-center">
-            Share your vision and we'll begin the co-creation process.
-          </p>
-          
-          {submitted ? (
-            <div className="bg-card border border-primary/20 rounded-lg p-8 text-center">
-              <h3 className="text-2xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Thank You!</h3>
-              <p className="text-white/90">Your request has been submitted. We will reach out within 24-48 hours.</p>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="bg-card border border-primary/20 rounded-lg p-8 space-y-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-primary mb-2">Your Name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-primary mb-2">Your Email</label>
-                  <input
-                    type="email"
-                    value={formData.email}
-                    onChange={e => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-primary mb-2">Describe Your Vision</label>
-                <textarea
-                  value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-32"
-                  placeholder="What kind of song or album are you envisioning?"
-                  required
-                />
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-primary mb-2">Mood/Feeling (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData.mood}
-                    onChange={e => setFormData({ ...formData, mood: e.target.value })}
-                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
-                    placeholder="e.g., Uplifting, Meditative, Powerful"
-                  />
-                </div>
-                <div>
-                  <label className="block text-primary mb-2">Purpose (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData.purpose}
-                    onChange={e => setFormData({ ...formData, purpose: e.target.value })}
-                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
-                    placeholder="e.g., Personal healing, Event, Gift"
-                  />
-                </div>
-              </div>
-              {error && <p className="text-red-400 text-center">{error}</p>}
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full px-8 py-4 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
-              >
-                {submitting ? 'Submitting...' : 'Submit Request'}
-              </button>
-            </form>
-          )}
         </div>
       </section>
     </div>
