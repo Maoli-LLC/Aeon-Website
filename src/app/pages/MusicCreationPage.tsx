@@ -1,11 +1,24 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Music } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 export function MusicCreationPage() {
+  const { user, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', description: '', mood: '', purpose: '' });
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      setFormData(prev => ({
+        ...prev,
+        name: prev.name || fullName || '',
+        email: prev.email || user.email || '',
+      }));
+    }
+  }, [isAuthenticated, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
