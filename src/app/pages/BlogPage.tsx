@@ -32,6 +32,17 @@ export function BlogPage() {
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredPosts = posts.filter(post => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      post.title.toLowerCase().includes(query) ||
+      post.excerpt.toLowerCase().includes(query) ||
+      (post.content && post.content.toLowerCase().includes(query))
+    );
+  });
 
   useEffect(() => {
     fetch(`/api/blog-posts?category=${activeTab}`)
@@ -217,9 +228,9 @@ export function BlogPage() {
 
       <section className="py-8 border-b border-primary/20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center gap-4">
+          <div className="flex justify-center gap-4 mb-6">
             <button
-              onClick={() => { setActiveTab('sahlien'); setLoading(true); }}
+              onClick={() => { setActiveTab('sahlien'); setLoading(true); setSearchQuery(''); }}
               className={`px-6 py-3 rounded-md text-lg transition-all ${
                 activeTab === 'sahlien'
                   ? 'bg-primary text-black'
@@ -230,7 +241,7 @@ export function BlogPage() {
               Sahlien Blog
             </button>
             <button
-              onClick={() => { setActiveTab('dream'); setLoading(true); }}
+              onClick={() => { setActiveTab('dream'); setLoading(true); setSearchQuery(''); }}
               className={`px-6 py-3 rounded-md text-lg transition-all ${
                 activeTab === 'dream'
                   ? 'bg-primary text-black'
@@ -241,6 +252,39 @@ export function BlogPage() {
               Dream Blog
             </button>
           </div>
+          <div className="max-w-md mx-auto">
+            <div className="relative">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search posts by keyword..."
+                className="w-full px-4 py-3 pl-12 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+              />
+              <svg
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="8" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </section>
 
@@ -248,14 +292,33 @@ export function BlogPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           {loading ? (
             <p className="text-center text-muted-foreground">Loading posts...</p>
-          ) : posts.length === 0 ? (
+          ) : filteredPosts.length === 0 ? (
             <div className="text-center">
-              <p className="text-muted-foreground mb-4">No posts yet in this category.</p>
-              <p className="text-sm text-muted-foreground">Check back soon for new transmissions.</p>
+              {searchQuery ? (
+                <>
+                  <p className="text-muted-foreground mb-4">No posts found for "{searchQuery}"</p>
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    className="text-primary hover:text-primary/80"
+                  >
+                    Clear search
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-muted-foreground mb-4">No posts yet in this category.</p>
+                  <p className="text-sm text-muted-foreground">Check back soon for new transmissions.</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="space-y-8">
-              {posts.map(post => (
+              {searchQuery && (
+                <p className="text-muted-foreground text-center mb-4">
+                  Found {filteredPosts.length} post{filteredPosts.length !== 1 ? 's' : ''} matching "{searchQuery}"
+                </p>
+              )}
+              {filteredPosts.map(post => (
                 <article
                   key={post.id}
                   className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all cursor-pointer"
