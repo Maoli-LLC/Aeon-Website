@@ -216,13 +216,11 @@ export function Layout() {
             </div>
 
             <div>
-              <h4 className="mb-4 text-primary">Connect</h4>
-              <div className="flex space-x-4">
-                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Instagram</a>
-                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">Facebook</a>
-                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">X</a>
-                <a href="#" className="text-muted-foreground hover:text-primary transition-colors">TikTok</a>
-              </div>
+              <h4 className="mb-4 text-primary">Services</h4>
+              <ul className="space-y-2">
+                <li><Link to="/dream-lattice" className="text-muted-foreground hover:text-primary transition-colors">Dream Interpretation</Link></li>
+                <li><Link to="/contact" className="text-muted-foreground hover:text-primary transition-colors">Contact</Link></li>
+              </ul>
             </div>
           </div>
 
