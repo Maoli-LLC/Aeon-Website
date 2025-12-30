@@ -212,6 +212,57 @@ async function main() {
     }
   });
 
+  // Sitemap for SEO
+  app.get("/sitemap.xml", async (req, res) => {
+    try {
+      const posts = await db.select().from(blogPosts).where(eq(blogPosts.published, true));
+      const baseUrl = "https://www.iamsahlien.com";
+      
+      const staticPages = [
+        { url: "/", priority: "1.0", changefreq: "weekly" },
+        { url: "/blog/sahlien", priority: "0.9", changefreq: "weekly" },
+        { url: "/blog/dreams", priority: "0.9", changefreq: "weekly" },
+        { url: "/dream-lattice", priority: "0.8", changefreq: "monthly" },
+        { url: "/music-creation", priority: "0.8", changefreq: "monthly" },
+        { url: "/webapp-service", priority: "0.8", changefreq: "monthly" },
+        { url: "/store", priority: "0.7", changefreq: "monthly" },
+        { url: "/contact", priority: "0.6", changefreq: "monthly" },
+      ];
+      
+      let xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+`;
+      
+      for (const page of staticPages) {
+        xml += `  <url>
+    <loc>${baseUrl}${page.url}</loc>
+    <changefreq>${page.changefreq}</changefreq>
+    <priority>${page.priority}</priority>
+  </url>
+`;
+      }
+      
+      for (const post of posts) {
+        const blogType = post.category === 'dreams' ? 'dreams' : 'sahlien';
+        xml += `  <url>
+    <loc>${baseUrl}/blog/${blogType}/${post.id}</loc>
+    <lastmod>${new Date(post.updatedAt ?? post.createdAt ?? new Date()).toISOString().split('T')[0]}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+`;
+      }
+      
+      xml += `</urlset>`;
+      
+      res.header("Content-Type", "application/xml");
+      res.send(xml);
+    } catch (error) {
+      console.error("Error generating sitemap:", error);
+      res.status(500).send("Error generating sitemap");
+    }
+  });
+
   // Get published blog posts (public)
   app.get("/api/blog-posts", async (req, res) => {
     try {
