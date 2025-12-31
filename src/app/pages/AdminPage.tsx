@@ -319,17 +319,25 @@ function BlogsSection() {
             return matchesSearch && matchesStatus;
           })
           .map(post => (
-          <div key={post.id} className="bg-card border border-primary/20 rounded-lg p-4 flex justify-between items-start">
-            <div>
+          <div key={post.id} className="bg-card border border-primary/20 rounded-lg p-4 flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex-1 min-w-0">
               <h3 className="text-xl text-primary">{post.title}</h3>
               <p className="text-sm text-muted-foreground">{post.category} | {post.published ? 'Published' : 'Draft'}</p>
-              <p className="text-white/80 mt-2">{post.excerpt}</p>
+              <p className="text-white/80 mt-2 line-clamp-2">{post.excerpt}</p>
             </div>
-            <div className="flex gap-2">
-              <button onClick={() => startEdit(post)} className="px-3 py-1 border border-primary text-primary rounded-md hover:bg-primary/10">
+            <div className="flex gap-2 flex-shrink-0">
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); startEdit(post); }} 
+                className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 active:bg-primary/20 min-w-[70px]"
+              >
                 Edit
               </button>
-              <button onClick={() => handleDelete(post.id)} className="px-3 py-1 border border-red-500 text-red-500 rounded-md hover:bg-red-500/10">
+              <button 
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }} 
+                className="px-4 py-2 border border-red-500 text-red-500 rounded-md hover:bg-red-500/10 active:bg-red-500/20 min-w-[70px]"
+              >
                 Delete
               </button>
             </div>
