@@ -411,6 +411,12 @@ function DreamsSection() {
     setSendSuccess(false);
   };
 
+  const deleteRequest = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this request?')) return;
+    await fetch(`/api/admin/dream-requests/${id}`, { method: 'DELETE' });
+    setRequests(requests.filter(r => r.id !== id));
+  };
+
   if (loading) return <p className="text-white">Loading...</p>;
 
   return (
@@ -503,14 +509,23 @@ function DreamsSection() {
               onClick={() => openRequest(request)}
               className="bg-card border border-primary/20 rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-all"
             >
-              <div className="flex justify-between items-start mb-2">
-                <div>
+              <div className="flex justify-between items-start mb-2 flex-wrap gap-2">
+                <div className="flex-1 min-w-0">
                   <h3 className="text-lg text-primary">{request.name}</h3>
                   <p className="text-sm text-muted-foreground">{request.email}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-md border text-sm capitalize ${getStatusColor(request.status || 'pending')}`}>
-                  {(request.status || 'pending').replace('_', ' ')}
-                </span>
+                <div className="flex gap-2 items-start">
+                  <span className={`px-3 py-1 rounded-md border text-sm capitalize ${getStatusColor(request.status || 'pending')}`}>
+                    {(request.status || 'pending').replace('_', ' ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteRequest(request.id); }}
+                    className="px-3 py-1 border border-red-500 text-red-500 rounded-md hover:bg-red-500/10 active:bg-red-500/20 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
               <p className="text-white/90 whitespace-pre-wrap line-clamp-3">{request.dreamDescription}</p>
               <p className="text-xs text-muted-foreground mt-2">
@@ -585,6 +600,12 @@ function MusicSection() {
     setSelectedRequest(request);
     setResponse(request.notes || '');
     setSendSuccess(false);
+  };
+
+  const deleteRequest = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this request?')) return;
+    await fetch(`/api/admin/music-requests/${id}`, { method: 'DELETE' });
+    setRequests(requests.filter(r => r.id !== id));
   };
 
   if (loading) return <p className="text-white">Loading...</p>;
@@ -685,14 +706,23 @@ function MusicSection() {
               onClick={() => openRequest(request)}
               className="bg-card border border-primary/20 rounded-lg p-4 cursor-pointer hover:border-primary/50 transition-all"
             >
-              <div className="flex justify-between items-start mb-2">
-                <div>
+              <div className="flex justify-between items-start mb-2 flex-wrap gap-2">
+                <div className="flex-1 min-w-0">
                   <h3 className="text-lg text-primary">{request.name}</h3>
                   <p className="text-sm text-muted-foreground">{request.email}</p>
                 </div>
-                <span className={`px-3 py-1 rounded-md border text-sm capitalize ${getStatusColor(request.status || 'pending')}`}>
-                  {(request.status || 'pending').replace('_', ' ')}
-                </span>
+                <div className="flex gap-2 items-start">
+                  <span className={`px-3 py-1 rounded-md border text-sm capitalize ${getStatusColor(request.status || 'pending')}`}>
+                    {(request.status || 'pending').replace('_', ' ')}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); deleteRequest(request.id); }}
+                    className="px-3 py-1 border border-red-500 text-red-500 rounded-md hover:bg-red-500/10 active:bg-red-500/20 text-sm"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
               <p className="text-white/90 whitespace-pre-wrap line-clamp-3">{request.description}</p>
               {request.mood && <p className="text-sm text-muted-foreground mt-2">Mood: {request.mood}</p>}

@@ -684,6 +684,18 @@ async function main() {
     }
   });
 
+  // Delete dream request
+  app.delete("/api/admin/dream-requests/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(dreamRequests).where(eq(dreamRequests.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting dream request:", error);
+      res.status(500).json({ message: "Failed to delete request" });
+    }
+  });
+
   // Get all music requests
   app.get("/api/admin/music-requests", isAuthenticated, isOwner, async (req, res) => {
     try {
@@ -785,6 +797,18 @@ async function main() {
     } catch (error) {
       console.error("Error sending music response email:", error);
       res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
+  // Delete music request
+  app.delete("/api/admin/music-requests/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(musicRequests).where(eq(musicRequests.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting music request:", error);
+      res.status(500).json({ message: "Failed to delete request" });
     }
   });
 
