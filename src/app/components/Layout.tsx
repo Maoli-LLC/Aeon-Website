@@ -3,6 +3,7 @@ import { Menu, X, User, LogOut } from 'lucide-react';
 import { useState, useEffect, FormEvent } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { toast } from 'sonner';
+import { useAnalytics } from '../hooks/useAnalytics';
 
 export function Layout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -10,6 +11,7 @@ export function Layout() {
   const [subscribing, setSubscribing] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
   const { user, isAuthenticated, isLoading } = useAuth();
+  const { trackConversion } = useAnalytics();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -43,6 +45,7 @@ export function Layout() {
       if (res.ok) {
         toast.success('Welcome to Team Aeon!');
         setSubscribeEmail('');
+        trackConversion('newsletter_signup');
       } else {
         toast.error('Failed to subscribe. Please try again.');
       }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Code, Smartphone, Palette, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { trackEvent } from '../hooks/useAnalytics';
 
 export function WebAppServicePage() {
   const { user, isAuthenticated } = useAuth();
@@ -51,6 +52,7 @@ export function WebAppServicePage() {
           colorPreferences: '',
           exampleSites: '',
         });
+        trackEvent('conversion', 'webapp_request');
       } else {
         setError('Failed to submit. Please try again.');
       }

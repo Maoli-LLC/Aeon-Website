@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Music } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { trackEvent } from '../hooks/useAnalytics';
 
 export function MusicCreationPage() {
   const { user, isAuthenticated } = useAuth();
@@ -35,6 +36,7 @@ export function MusicCreationPage() {
       if (res.ok) {
         setSubmitted(true);
         setFormData({ name: '', email: '', description: '', mood: '', purpose: '' });
+        trackEvent('conversion', 'music_request');
       } else {
         setError('Failed to submit. Please try again.');
       }

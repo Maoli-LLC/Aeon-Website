@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Moon, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { trackEvent } from '../hooks/useAnalytics';
 
 export function DreamLatticePage() {
   const { user, isAuthenticated } = useAuth();
@@ -35,6 +36,7 @@ export function DreamLatticePage() {
       if (res.ok) {
         setSubmitted(true);
         setFormData({ name: '', email: '', dreamDescription: '' });
+        trackEvent('conversion', 'dream_request');
       } else {
         setError('Failed to submit. Please try again.');
       }

@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/pop
 import { format } from 'date-fns';
 import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment, WebAppRequest } from '@shared/schema';
 
-type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments';
+type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments' | 'analytics';
 
 export function AdminPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -78,7 +78,7 @@ export function AdminPage() {
         </div>
 
         <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4 flex-wrap">
-          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments'] as AdminTab[]).map(tab => (
+          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments', 'analytics'] as AdminTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -88,7 +88,7 @@ export function AdminPage() {
                   : 'border border-primary text-primary hover:bg-primary/10'
               }`}
             >
-              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : 'Comments'}
+              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : tab === 'comments' ? 'Comments' : 'Analytics'}
             </button>
           ))}
         </div>
@@ -100,6 +100,7 @@ export function AdminPage() {
         {activeTab === 'subscribers' && <SubscribersSection />}
         {activeTab === 'marketing' && <EmailMarketingSection />}
         {activeTab === 'comments' && <CommentsSection />}
+        {activeTab === 'analytics' && <AnalyticsSection />}
       </div>
     </div>
   );
@@ -1599,6 +1600,322 @@ function WebAppSection() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+interface AnalyticsSummary {
+  pageViews: number;
+  uniqueVisitors: number;
+  sessions: number;
+  conversions: {
+    dream: number;
+    music: number;
+    webapp: number;
+    newsletter: number;
+    total: number;
+  };
+}
+
+interface DailyMetric {
+  date: string;
+  pageViews: number;
+  uniqueVisitors: number;
+  sessions: number;
+  conversions: number;
+}
+
+interface TopPage {
+  pageUrl: string;
+  pageTitle: string;
+  views: number;
+  uniqueVisitors: number;
+}
+
+interface TrafficSource {
+  source: string;
+  count: number;
+}
+
+interface Campaign {
+  campaign: string;
+  source: string;
+  medium: string;
+  visits: number;
+  conversions: number;
+}
+
+interface DeviceData {
+  devices: { device: string; count: number }[];
+  browsers: { browser: string; count: number }[];
+}
+
+function AnalyticsSection() {
+  const [summary, setSummary] = useState<AnalyticsSummary | null>(null);
+  const [dailyData, setDailyData] = useState<DailyMetric[]>([]);
+  const [topPages, setTopPages] = useState<TopPage[]>([]);
+  const [sources, setSources] = useState<TrafficSource[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [deviceData, setDeviceData] = useState<DeviceData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [dateRange, setDateRange] = useState<'7d' | '30d' | '90d'>('30d');
+
+  const fetchAnalytics = async () => {
+    setLoading(true);
+    const days = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 90;
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const endDate = new Date().toISOString();
+    const params = `?startDate=${startDate}&endDate=${endDate}`;
+
+    try {
+      const [summaryRes, dailyRes, pagesRes, sourcesRes, campaignsRes, devicesRes] = await Promise.all([
+        fetch(`/api/admin/analytics/summary${params}`),
+        fetch(`/api/admin/analytics/daily${params}`),
+        fetch(`/api/admin/analytics/top-pages${params}`),
+        fetch(`/api/admin/analytics/sources${params}`),
+        fetch(`/api/admin/analytics/campaigns${params}`),
+        fetch(`/api/admin/analytics/devices${params}`),
+      ]);
+
+      if (summaryRes.ok) setSummary(await summaryRes.json());
+      if (dailyRes.ok) setDailyData(await dailyRes.json());
+      if (pagesRes.ok) setTopPages(await pagesRes.json());
+      if (sourcesRes.ok) setSources(await sourcesRes.json());
+      if (campaignsRes.ok) setCampaigns(await campaignsRes.json());
+      if (devicesRes.ok) setDeviceData(await devicesRes.json());
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [dateRange]);
+
+  if (loading) {
+    return <div className="text-center py-8 text-white">Loading analytics...</div>;
+  }
+
+  const maxPageViews = Math.max(...dailyData.map(d => d.pageViews), 1);
+
+  return (
+    <div className="space-y-8">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Analytics Dashboard</h2>
+        <div className="flex gap-2">
+          {(['7d', '30d', '90d'] as const).map(range => (
+            <button
+              key={range}
+              onClick={() => setDateRange(range)}
+              className={`px-4 py-2 rounded-md text-sm ${
+                dateRange === range
+                  ? 'bg-primary text-black'
+                  : 'border border-primary text-primary hover:bg-primary/10'
+              }`}
+            >
+              {range === '7d' ? 'Last 7 Days' : range === '30d' ? 'Last 30 Days' : 'Last 90 Days'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
+          <p className="text-3xl font-bold text-primary">{summary?.pageViews || 0}</p>
+          <p className="text-muted-foreground">Page Views</p>
+        </div>
+        <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
+          <p className="text-3xl font-bold text-primary">{summary?.uniqueVisitors || 0}</p>
+          <p className="text-muted-foreground">Unique Visitors</p>
+        </div>
+        <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
+          <p className="text-3xl font-bold text-primary">{summary?.sessions || 0}</p>
+          <p className="text-muted-foreground">Sessions</p>
+        </div>
+        <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
+          <p className="text-3xl font-bold text-primary">{summary?.conversions?.total || 0}</p>
+          <p className="text-muted-foreground">Total Conversions</p>
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-4 gap-4">
+        <div className="bg-card border border-green-500/30 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-green-400">{summary?.conversions?.dream || 0}</p>
+          <p className="text-muted-foreground text-sm">Dream Requests</p>
+        </div>
+        <div className="bg-card border border-blue-500/30 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-blue-400">{summary?.conversions?.music || 0}</p>
+          <p className="text-muted-foreground text-sm">Music Requests</p>
+        </div>
+        <div className="bg-card border border-purple-500/30 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-purple-400">{summary?.conversions?.webapp || 0}</p>
+          <p className="text-muted-foreground text-sm">Web/App Requests</p>
+        </div>
+        <div className="bg-card border border-yellow-500/30 rounded-lg p-4 text-center">
+          <p className="text-2xl font-bold text-yellow-400">{summary?.conversions?.newsletter || 0}</p>
+          <p className="text-muted-foreground text-sm">Newsletter Signups</p>
+        </div>
+      </div>
+
+      <div className="bg-card border border-primary/20 rounded-lg p-6">
+        <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Daily Traffic</h3>
+        {dailyData.length === 0 ? (
+          <p className="text-muted-foreground text-center py-8">No data available for this period</p>
+        ) : (
+          <div className="space-y-2">
+            {dailyData.slice(-14).map(day => (
+              <div key={day.date} className="flex items-center gap-4">
+                <span className="text-muted-foreground w-24 text-sm">{format(new Date(day.date), 'MMM d')}</span>
+                <div className="flex-1 bg-background rounded h-6 overflow-hidden">
+                  <div
+                    className="h-full bg-primary/60 rounded flex items-center px-2"
+                    style={{ width: `${Math.max((day.pageViews / maxPageViews) * 100, 5)}%` }}
+                  >
+                    <span className="text-xs text-white">{day.pageViews} views</span>
+                  </div>
+                </div>
+                <span className="text-muted-foreground text-sm w-20">{day.uniqueVisitors} visitors</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Top Pages</h3>
+          {topPages.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">No page data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {topPages.map((page, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-primary/10 last:border-0">
+                  <div>
+                    <p className="text-white text-sm">{page.pageTitle || page.pageUrl}</p>
+                    <p className="text-muted-foreground text-xs">{page.pageUrl}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-primary font-semibold">{page.views}</p>
+                    <p className="text-muted-foreground text-xs">{page.uniqueVisitors} unique</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Traffic Sources</h3>
+          {sources.length === 0 ? (
+            <p className="text-muted-foreground text-center py-4">No source data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {sources.map((source, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-primary/10 last:border-0">
+                  <span className="text-white">{source.source}</span>
+                  <span className="text-primary font-semibold">{source.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {campaigns.length > 0 && (
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Campaign Performance</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-primary/20">
+                  <th className="text-left py-3 px-2 text-muted-foreground">Campaign</th>
+                  <th className="text-left py-3 px-2 text-muted-foreground">Source</th>
+                  <th className="text-left py-3 px-2 text-muted-foreground">Medium</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground">Visits</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground">Conversions</th>
+                  <th className="text-right py-3 px-2 text-muted-foreground">Conv. Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {campaigns.map((c, i) => (
+                  <tr key={i} className="border-b border-primary/10">
+                    <td className="py-3 px-2 text-white">{c.campaign}</td>
+                    <td className="py-3 px-2 text-muted-foreground">{c.source}</td>
+                    <td className="py-3 px-2 text-muted-foreground">{c.medium}</td>
+                    <td className="py-3 px-2 text-right text-white">{c.visits}</td>
+                    <td className="py-3 px-2 text-right text-primary">{c.conversions}</td>
+                    <td className="py-3 px-2 text-right text-green-400">
+                      {c.visits > 0 ? ((c.conversions / c.visits) * 100).toFixed(1) : 0}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Devices</h3>
+          {!deviceData?.devices?.length ? (
+            <p className="text-muted-foreground text-center py-4">No device data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {deviceData.devices.map((d, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-primary/10 last:border-0">
+                  <span className="text-white capitalize">{d.device}</span>
+                  <span className="text-primary font-semibold">{d.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="bg-card border border-primary/20 rounded-lg p-6">
+          <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>Browsers</h3>
+          {!deviceData?.browsers?.length ? (
+            <p className="text-muted-foreground text-center py-4">No browser data yet</p>
+          ) : (
+            <div className="space-y-3">
+              {deviceData.browsers.map((b, i) => (
+                <div key={i} className="flex justify-between items-center py-2 border-b border-primary/10 last:border-0">
+                  <span className="text-white">{b.browser}</span>
+                  <span className="text-primary font-semibold">{b.count}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-card border border-primary/20 rounded-lg p-6">
+        <h3 className="text-xl text-primary mb-4" style={{ fontFamily: "'Cinzel', serif" }}>UTM Campaign Tracking Guide</h3>
+        <p className="text-muted-foreground mb-4">
+          Add these parameters to your links to track campaign performance:
+        </p>
+        <div className="bg-background p-4 rounded-md overflow-x-auto">
+          <code className="text-sm text-primary">
+            https://www.iamsahlien.com/?utm_source=facebook&utm_medium=social&utm_campaign=summer_launch
+          </code>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4 mt-4">
+          <div>
+            <p className="text-white font-medium">utm_source</p>
+            <p className="text-muted-foreground text-sm">Traffic source (facebook, google, newsletter)</p>
+          </div>
+          <div>
+            <p className="text-white font-medium">utm_medium</p>
+            <p className="text-muted-foreground text-sm">Marketing medium (social, email, cpc)</p>
+          </div>
+          <div>
+            <p className="text-white font-medium">utm_campaign</p>
+            <p className="text-muted-foreground text-sm">Campaign name (summer_launch, new_album)</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
