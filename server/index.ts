@@ -5,8 +5,8 @@ import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests } from "@shared/schema";
-import { eq, desc, and, lte } from "drizzle-orm";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics } from "@shared/schema";
+import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail } from "./gmail";
 
 const app = express();
@@ -959,6 +959,379 @@ async function main() {
       res.status(500).json({ message: "Failed to delete comment" });
     }
   });
+
+  // ==================== ANALYTICS ENDPOINTS ====================
+
+  // Helper to parse user agent for device type and browser
+  const parseUserAgent = (ua: string) => {
+    let deviceType = "desktop";
+    let browser = "unknown";
+    
+    if (/mobile|android|iphone|ipad|ipod/i.test(ua)) {
+      deviceType = /ipad|tablet/i.test(ua) ? "tablet" : "mobile";
+    }
+    
+    if (/chrome/i.test(ua) && !/edge|edg/i.test(ua)) browser = "Chrome";
+    else if (/firefox/i.test(ua)) browser = "Firefox";
+    else if (/safari/i.test(ua) && !/chrome/i.test(ua)) browser = "Safari";
+    else if (/edge|edg/i.test(ua)) browser = "Edge";
+    else if (/msie|trident/i.test(ua)) browser = "IE";
+    
+    return { deviceType, browser };
+  };
+
+  // Track analytics event (public endpoint)
+  app.post("/api/analytics/track", async (req, res) => {
+    try {
+      const { sessionId, visitorId, eventType, pageUrl, pageTitle, referrer, utmSource, utmMedium, utmCampaign, utmTerm, utmContent, conversionType } = req.body;
+      
+      if (!sessionId || !visitorId || !eventType) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      const userAgent = req.headers["user-agent"] || "";
+      const { deviceType, browser } = parseUserAgent(userAgent);
+      
+      await db.insert(analyticsEvents).values({
+        sessionId,
+        visitorId,
+        eventType,
+        pageUrl,
+        pageTitle,
+        referrer,
+        utmSource,
+        utmMedium,
+        utmCampaign,
+        utmTerm,
+        utmContent,
+        deviceType,
+        browser,
+        conversionType,
+      });
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error tracking analytics:", error);
+      res.status(500).json({ message: "Failed to track event" });
+    }
+  });
+
+  // Get analytics summary (admin)
+  app.get("/api/admin/analytics/summary", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      end.setHours(23, 59, 59, 999);
+      
+      // Get page views
+      const pageViewsResult = await db.select({ count: count() })
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.eventType, "page_view"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      // Get unique visitors
+      const uniqueVisitorsResult = await db.select({ count: countDistinct(analyticsEvents.visitorId) })
+        .from(analyticsEvents)
+        .where(and(
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      // Get unique sessions
+      const sessionsResult = await db.select({ count: countDistinct(analyticsEvents.sessionId) })
+        .from(analyticsEvents)
+        .where(and(
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      // Get conversions by type
+      const dreamConversions = await db.select({ count: count() })
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.conversionType, "dream_request"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      const musicConversions = await db.select({ count: count() })
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.conversionType, "music_request"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      const webappConversions = await db.select({ count: count() })
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.conversionType, "webapp_request"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      const newsletterSignups = await db.select({ count: count() })
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.conversionType, "newsletter_signup"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      res.json({
+        pageViews: pageViewsResult[0]?.count || 0,
+        uniqueVisitors: uniqueVisitorsResult[0]?.count || 0,
+        sessions: sessionsResult[0]?.count || 0,
+        conversions: {
+          dream: dreamConversions[0]?.count || 0,
+          music: musicConversions[0]?.count || 0,
+          webapp: webappConversions[0]?.count || 0,
+          newsletter: newsletterSignups[0]?.count || 0,
+          total: (dreamConversions[0]?.count || 0) + (musicConversions[0]?.count || 0) + (webappConversions[0]?.count || 0) + (newsletterSignups[0]?.count || 0),
+        },
+      });
+    } catch (error) {
+      console.error("Error fetching analytics summary:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get daily analytics data for charts (admin)
+  app.get("/api/admin/analytics/daily", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      end.setHours(23, 59, 59, 999);
+      
+      // Get events in date range
+      const events = await db.select()
+        .from(analyticsEvents)
+        .where(and(
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ))
+        .orderBy(analyticsEvents.createdAt);
+      
+      // Group by date
+      const dailyData: { [key: string]: { date: string; pageViews: number; uniqueVisitors: Set<string>; sessions: Set<string>; conversions: number } } = {};
+      
+      events.forEach(event => {
+        const date = event.createdAt?.toISOString().split('T')[0] || '';
+        if (!dailyData[date]) {
+          dailyData[date] = { date, pageViews: 0, uniqueVisitors: new Set(), sessions: new Set(), conversions: 0 };
+        }
+        
+        if (event.eventType === 'page_view') {
+          dailyData[date].pageViews++;
+        }
+        dailyData[date].uniqueVisitors.add(event.visitorId);
+        dailyData[date].sessions.add(event.sessionId);
+        
+        if (event.conversionType) {
+          dailyData[date].conversions++;
+        }
+      });
+      
+      // Convert Sets to counts
+      const result = Object.values(dailyData).map(d => ({
+        date: d.date,
+        pageViews: d.pageViews,
+        uniqueVisitors: d.uniqueVisitors.size,
+        sessions: d.sessions.size,
+        conversions: d.conversions,
+      })).sort((a, b) => a.date.localeCompare(b.date));
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching daily analytics:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get top pages (admin)
+  app.get("/api/admin/analytics/top-pages", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      end.setHours(23, 59, 59, 999);
+      
+      const events = await db.select()
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.eventType, "page_view"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      // Group by page
+      const pageData: { [key: string]: { pageUrl: string; pageTitle: string; views: number; uniqueVisitors: Set<string> } } = {};
+      
+      events.forEach(event => {
+        const url = event.pageUrl || '/';
+        if (!pageData[url]) {
+          pageData[url] = { pageUrl: url, pageTitle: event.pageTitle || url, views: 0, uniqueVisitors: new Set() };
+        }
+        pageData[url].views++;
+        pageData[url].uniqueVisitors.add(event.visitorId);
+      });
+      
+      const result = Object.values(pageData)
+        .map(p => ({ pageUrl: p.pageUrl, pageTitle: p.pageTitle, views: p.views, uniqueVisitors: p.uniqueVisitors.size }))
+        .sort((a, b) => b.views - a.views)
+        .slice(0, 10);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching top pages:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get traffic sources (admin)
+  app.get("/api/admin/analytics/sources", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      end.setHours(23, 59, 59, 999);
+      
+      const events = await db.select()
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.eventType, "page_view"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      // Group by referrer
+      const referrerData: { [key: string]: number } = {};
+      
+      events.forEach(event => {
+        let source = "Direct";
+        if (event.utmSource) {
+          source = event.utmSource;
+        } else if (event.referrer) {
+          try {
+            const url = new URL(event.referrer);
+            source = url.hostname;
+          } catch {
+            source = event.referrer;
+          }
+        }
+        referrerData[source] = (referrerData[source] || 0) + 1;
+      });
+      
+      const result = Object.entries(referrerData)
+        .map(([source, count]) => ({ source, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching traffic sources:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get campaign performance (admin)
+  app.get("/api/admin/analytics/campaigns", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      end.setHours(23, 59, 59, 999);
+      
+      const events = await db.select()
+        .from(analyticsEvents)
+        .where(and(
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      // Group by campaign
+      const campaignData: { [key: string]: { campaign: string; source: string; medium: string; visits: number; conversions: number } } = {};
+      
+      events.forEach(event => {
+        if (event.utmCampaign) {
+          const key = `${event.utmCampaign}|${event.utmSource || 'unknown'}|${event.utmMedium || 'unknown'}`;
+          if (!campaignData[key]) {
+            campaignData[key] = {
+              campaign: event.utmCampaign,
+              source: event.utmSource || 'unknown',
+              medium: event.utmMedium || 'unknown',
+              visits: 0,
+              conversions: 0,
+            };
+          }
+          if (event.eventType === 'page_view') {
+            campaignData[key].visits++;
+          }
+          if (event.conversionType) {
+            campaignData[key].conversions++;
+          }
+        }
+      });
+      
+      const result = Object.values(campaignData)
+        .sort((a, b) => b.visits - a.visits)
+        .slice(0, 20);
+      
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching campaign data:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // Get device breakdown (admin)
+  app.get("/api/admin/analytics/devices", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      
+      const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const end = endDate ? new Date(endDate as string) : new Date();
+      end.setHours(23, 59, 59, 999);
+      
+      const events = await db.select()
+        .from(analyticsEvents)
+        .where(and(
+          eq(analyticsEvents.eventType, "page_view"),
+          gte(analyticsEvents.createdAt, start),
+          lte(analyticsEvents.createdAt, end)
+        ));
+      
+      const deviceData: { [key: string]: number } = {};
+      const browserData: { [key: string]: number } = {};
+      
+      events.forEach(event => {
+        const device = event.deviceType || 'unknown';
+        const browser = event.browser || 'unknown';
+        deviceData[device] = (deviceData[device] || 0) + 1;
+        browserData[browser] = (browserData[browser] || 0) + 1;
+      });
+      
+      res.json({
+        devices: Object.entries(deviceData).map(([device, count]) => ({ device, count })).sort((a, b) => b.count - a.count),
+        browsers: Object.entries(browserData).map(([browser, count]) => ({ browser, count })).sort((a, b) => b.count - a.count),
+      });
+    } catch (error) {
+      console.error("Error fetching device data:", error);
+      res.status(500).json({ message: "Failed to fetch analytics" });
+    }
+  });
+
+  // ==================== END ANALYTICS ENDPOINTS ====================
 
   // Background job to process scheduled emails (runs every minute)
   async function processScheduledEmails() {

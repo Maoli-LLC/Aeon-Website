@@ -117,3 +117,44 @@ export const webAppRequests = pgTable("webapp_requests", {
 
 export type WebAppRequest = typeof webAppRequests.$inferSelect;
 export type InsertWebAppRequest = typeof webAppRequests.$inferInsert;
+
+// Analytics - Page views and sessions
+export const analyticsEvents = pgTable("analytics_events", {
+  id: serial("id").primaryKey(),
+  sessionId: varchar("session_id", { length: 64 }).notNull(),
+  visitorId: varchar("visitor_id", { length: 64 }).notNull(),
+  eventType: varchar("event_type", { length: 50 }).notNull(), // page_view, conversion, session_start
+  pageUrl: varchar("page_url", { length: 500 }),
+  pageTitle: varchar("page_title", { length: 255 }),
+  referrer: varchar("referrer", { length: 500 }),
+  utmSource: varchar("utm_source", { length: 255 }),
+  utmMedium: varchar("utm_medium", { length: 255 }),
+  utmCampaign: varchar("utm_campaign", { length: 255 }),
+  utmTerm: varchar("utm_term", { length: 255 }),
+  utmContent: varchar("utm_content", { length: 255 }),
+  deviceType: varchar("device_type", { length: 50 }), // desktop, mobile, tablet
+  browser: varchar("browser", { length: 100 }),
+  country: varchar("country", { length: 100 }),
+  conversionType: varchar("conversion_type", { length: 50 }), // dream_request, music_request, webapp_request, newsletter_signup
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;
+
+// Analytics - Daily aggregated metrics for fast queries
+export const analyticsDailyMetrics = pgTable("analytics_daily_metrics", {
+  id: serial("id").primaryKey(),
+  date: timestamp("date").notNull(),
+  pageViews: integer("page_views").default(0),
+  uniqueVisitors: integer("unique_visitors").default(0),
+  sessions: integer("sessions").default(0),
+  dreamConversions: integer("dream_conversions").default(0),
+  musicConversions: integer("music_conversions").default(0),
+  webappConversions: integer("webapp_conversions").default(0),
+  newsletterSignups: integer("newsletter_signups").default(0),
+  avgSessionDuration: integer("avg_session_duration").default(0), // in seconds
+});
+
+export type AnalyticsDailyMetric = typeof analyticsDailyMetrics.$inferSelect;
+export type InsertAnalyticsDailyMetric = typeof analyticsDailyMetrics.$inferInsert;
