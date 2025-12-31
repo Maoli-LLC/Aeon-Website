@@ -96,7 +96,7 @@ export function Homepage() {
       {/* Quick Links */}
       <section className="py-20 bg-secondary">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <a
               href="/dream-lattice"
               className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all"
@@ -118,6 +118,18 @@ export function Homepage() {
               </h3>
               <p className="text-muted-foreground">
                 Co-create resonant frequencies through custom song commissions.
+              </p>
+            </a>
+
+            <a
+              href="/web-services"
+              className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all"
+            >
+              <h3 className="text-2xl mb-4 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                Web & App Creation
+              </h3>
+              <p className="text-muted-foreground">
+                Bring your digital vision to life with custom websites and mobile apps.
               </p>
             </a>
 
