@@ -1443,7 +1443,9 @@ async function main() {
 
             if (htmlBody) {
               try {
+                console.log(`Sending scheduled email to ${subscriber.email}...`);
                 await sendEmail(subscriber.email, subject, htmlBody);
+                console.log(`Successfully sent to ${subscriber.email}`);
                 sentCount++;
               } catch (emailError) {
                 console.error(`Failed to send scheduled email to ${subscriber.email}:`, emailError);
