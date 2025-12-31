@@ -42,11 +42,12 @@ export function BlogPage() {
 
   const filteredPosts = posts.filter(post => {
     if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      post.title.toLowerCase().includes(query) ||
-      post.excerpt.toLowerCase().includes(query) ||
-      (post.content && post.content.toLowerCase().includes(query))
+    const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const title = post.title.toLowerCase();
+    const excerpt = post.excerpt.toLowerCase();
+    const content = post.content ? post.content.toLowerCase() : '';
+    return words.some(word => 
+      title.includes(word) || excerpt.includes(word) || content.includes(word)
     );
   });
 
