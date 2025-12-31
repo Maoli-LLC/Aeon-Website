@@ -355,6 +355,7 @@ function DreamsSection() {
   const [interpretation, setInterpretation] = useState('');
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetch('/api/admin/dream-requests')
@@ -419,9 +420,26 @@ function DreamsSection() {
 
   if (loading) return <p className="text-white">Loading...</p>;
 
+  const filteredRequests = requests.filter(r => 
+    statusFilter === 'all' || (r.status || 'pending') === statusFilter
+  );
+
   return (
     <div>
-      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>Dream Interpretation Requests</h2>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Dream Interpretation Requests</h2>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+        >
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
       
       {selectedRequest ? (
         <div className="bg-card border border-primary/20 rounded-lg p-6">
@@ -501,9 +519,9 @@ function DreamsSection() {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.length === 0 ? (
-            <p className="text-white/80">No dream requests yet.</p>
-          ) : requests.map(request => (
+          {filteredRequests.length === 0 ? (
+            <p className="text-white/80">{statusFilter === 'all' ? 'No dream requests yet.' : 'No requests with this status.'}</p>
+          ) : filteredRequests.map(request => (
             <div 
               key={request.id} 
               onClick={() => openRequest(request)}
@@ -546,6 +564,7 @@ function MusicSection() {
   const [response, setResponse] = useState('');
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetch('/api/admin/music-requests')
@@ -610,9 +629,26 @@ function MusicSection() {
 
   if (loading) return <p className="text-white">Loading...</p>;
 
+  const filteredRequests = requests.filter(r => 
+    statusFilter === 'all' || (r.status || 'pending') === statusFilter
+  );
+
   return (
     <div>
-      <h2 className="text-2xl text-primary mb-6" style={{ fontFamily: "'Cinzel', serif" }}>Music Creation Requests</h2>
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Music Creation Requests</h2>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+        >
+          <option value="all">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="in_progress">In Progress</option>
+          <option value="completed">Completed</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
       
       {selectedRequest ? (
         <div className="bg-card border border-primary/20 rounded-lg p-6">
@@ -698,9 +734,9 @@ function MusicSection() {
         </div>
       ) : (
         <div className="space-y-4">
-          {requests.length === 0 ? (
-            <p className="text-white/80">No music requests yet.</p>
-          ) : requests.map(request => (
+          {filteredRequests.length === 0 ? (
+            <p className="text-white/80">{statusFilter === 'all' ? 'No music requests yet.' : 'No requests with this status.'}</p>
+          ) : filteredRequests.map(request => (
             <div 
               key={request.id} 
               onClick={() => openRequest(request)}
@@ -1345,6 +1381,7 @@ function WebAppSection() {
   const [stripePaymentLink, setStripePaymentLink] = useState('');
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
 
   useEffect(() => {
     fetchRequests();
@@ -1393,28 +1430,44 @@ function WebAppSection() {
   };
 
   const filteredRequests = requests.filter(r => {
+    const matchesStatus = statusFilter === 'all' || (r.status || 'pending') === statusFilter;
     const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
-    return words.length === 0 || words.some(word =>
+    const matchesSearch = words.length === 0 || words.some(word =>
       r.name.toLowerCase().includes(word) ||
       r.email.toLowerCase().includes(word) ||
       r.description.toLowerCase().includes(word) ||
       r.projectType.toLowerCase().includes(word)
     );
+    return matchesStatus && matchesSearch;
   });
 
   if (loading) return <p className="text-white">Loading...</p>;
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Website/App Requests ({requests.length})</h2>
-        <input
-          type="text"
-          placeholder="Search requests..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none w-64"
-        />
+        <div className="flex gap-2 flex-wrap">
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+          >
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="quoted">Quoted</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Search requests..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none w-64"
+          />
+        </div>
       </div>
 
       {selectedRequest ? (
