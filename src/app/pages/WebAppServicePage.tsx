@@ -99,7 +99,7 @@ export function WebAppServicePage() {
           <h2 className="text-4xl mb-12 text-center text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
             What I Create
           </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8">
             <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
               <Code className="mx-auto mb-4 text-primary" size={48} />
               <h3 className="text-xl text-primary mb-2" style={{ fontFamily: "'Cinzel', serif" }}>Websites</h3>
@@ -107,6 +107,11 @@ export function WebAppServicePage() {
             </div>
             <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
               <Smartphone className="mx-auto mb-4 text-primary" size={48} />
+              <h3 className="text-xl text-primary mb-2" style={{ fontFamily: "'Cinzel', serif" }}>Mobile Apps</h3>
+              <p className="text-muted-foreground">iOS & Android apps for your business</p>
+            </div>
+            <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
+              <Layers className="mx-auto mb-4 text-primary" size={48} />
               <h3 className="text-xl text-primary mb-2" style={{ fontFamily: "'Cinzel', serif" }}>Web Apps</h3>
               <p className="text-muted-foreground">Interactive applications, dashboards, tools</p>
             </div>
@@ -116,7 +121,7 @@ export function WebAppServicePage() {
               <p className="text-muted-foreground">Unique aesthetics tailored to your vision</p>
             </div>
             <div className="bg-card border border-primary/20 rounded-lg p-6 text-center">
-              <Layers className="mx-auto mb-4 text-primary" size={48} />
+              <Code className="mx-auto mb-4 text-primary" size={48} />
               <h3 className="text-xl text-primary mb-2" style={{ fontFamily: "'Cinzel', serif" }}>Full Stack</h3>
               <p className="text-muted-foreground">Frontend, backend, databases, APIs</p>
             </div>
