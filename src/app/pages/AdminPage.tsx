@@ -307,10 +307,12 @@ function BlogsSection() {
       <div className="space-y-4">
         {posts
           .filter(post => {
-            const matchesSearch = searchQuery === '' || 
-              post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.excerpt.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              post.category.toLowerCase().includes(searchQuery.toLowerCase());
+            const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+            const matchesSearch = words.length === 0 || words.some(word =>
+              post.title.toLowerCase().includes(word) ||
+              post.excerpt.toLowerCase().includes(word) ||
+              post.category.toLowerCase().includes(word)
+            );
             const matchesStatus = statusFilter === 'all' || 
               (statusFilter === 'published' && post.published) ||
               (statusFilter === 'unpublished' && !post.published);
@@ -719,11 +721,13 @@ function SubscribersSection() {
   const activeSubscribers = subscribers.filter(s => !s.marketingOptOut);
   const optedOutSubscribers = subscribers.filter(s => s.marketingOptOut);
 
-  const filteredSubscribers = subscribers.filter(sub => 
-    searchQuery === '' || 
-    sub.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (sub.name && sub.name.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredSubscribers = subscribers.filter(sub => {
+    const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    return words.length === 0 || words.some(word =>
+      sub.email.toLowerCase().includes(word) ||
+      (sub.name && sub.name.toLowerCase().includes(word))
+    );
+  });
 
   return (
     <div>
@@ -1350,12 +1354,15 @@ function WebAppSection() {
     setSending(false);
   };
 
-  const filteredRequests = requests.filter(r => 
-    r.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.projectType.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredRequests = requests.filter(r => {
+    const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    return words.length === 0 || words.some(word =>
+      r.name.toLowerCase().includes(word) ||
+      r.email.toLowerCase().includes(word) ||
+      r.description.toLowerCase().includes(word) ||
+      r.projectType.toLowerCase().includes(word)
+    );
+  });
 
   if (loading) return <p className="text-white">Loading...</p>;
 
