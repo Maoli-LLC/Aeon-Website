@@ -122,7 +122,7 @@ export function Homepage() {
             </a>
 
             <a
-              href="/web-services"
+              href="/services"
               className="bg-card border border-primary/20 rounded-lg p-8 hover:border-primary/40 transition-all"
             >
               <h3 className="text-2xl mb-4 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
