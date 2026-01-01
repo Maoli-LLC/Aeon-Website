@@ -357,6 +357,7 @@ function DreamsSection() {
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/dream-requests')
@@ -421,25 +422,39 @@ function DreamsSection() {
 
   if (loading) return <p className="text-white">Loading...</p>;
 
-  const filteredRequests = requests.filter(r => 
-    statusFilter === 'all' || (r.status || 'pending') === statusFilter
-  );
+  const filteredRequests = requests.filter(r => {
+    const matchesStatus = statusFilter === 'all' || (r.status || 'pending') === statusFilter;
+    if (!matchesStatus) return false;
+    if (!searchQuery.trim()) return true;
+    const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const searchableText = `${r.name} ${r.email} ${r.dreamDescription}`.toLowerCase();
+    return words.some(word => searchableText.includes(word));
+  });
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Dream Interpretation Requests</h2>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
-        >
-          <option value="all">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="archived">Archived</option>
-        </select>
+        <div className="flex gap-4 flex-wrap">
+          <input
+            type="text"
+            placeholder="Search name, email, dream..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none w-64"
+          />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+          >
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
       </div>
       
       {selectedRequest ? (
@@ -566,6 +581,7 @@ function MusicSection() {
   const [sending, setSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     fetch('/api/admin/music-requests')
@@ -630,25 +646,39 @@ function MusicSection() {
 
   if (loading) return <p className="text-white">Loading...</p>;
 
-  const filteredRequests = requests.filter(r => 
-    statusFilter === 'all' || (r.status || 'pending') === statusFilter
-  );
+  const filteredRequests = requests.filter(r => {
+    const matchesStatus = statusFilter === 'all' || (r.status || 'pending') === statusFilter;
+    if (!matchesStatus) return false;
+    if (!searchQuery.trim()) return true;
+    const words = searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 0);
+    const searchableText = `${r.name} ${r.email} ${r.description} ${r.mood || ''} ${r.purpose || ''}`.toLowerCase();
+    return words.some(word => searchableText.includes(word));
+  });
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6 flex-wrap gap-4">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Music Creation Requests</h2>
-        <select
-          value={statusFilter}
-          onChange={e => setStatusFilter(e.target.value)}
-          className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
-        >
-          <option value="all">All Statuses</option>
-          <option value="pending">Pending</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-          <option value="archived">Archived</option>
-        </select>
+        <div className="flex gap-4 flex-wrap">
+          <input
+            type="text"
+            placeholder="Search name, email, description..."
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none w-64"
+          />
+          <select
+            value={statusFilter}
+            onChange={e => setStatusFilter(e.target.value)}
+            className="px-4 py-2 bg-background border border-primary/20 rounded-md text-white"
+          >
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending</option>
+            <option value="in_progress">In Progress</option>
+            <option value="completed">Completed</option>
+            <option value="archived">Archived</option>
+          </select>
+        </div>
       </div>
       
       {selectedRequest ? (
