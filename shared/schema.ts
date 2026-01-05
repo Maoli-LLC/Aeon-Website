@@ -107,9 +107,13 @@ export const webAppRequests = pgTable("webapp_requests", {
   functionality: text("functionality").notNull(),
   colorPreferences: varchar("color_preferences", { length: 500 }),
   exampleSites: text("example_sites"),
-  status: varchar("status", { length: 50 }).default("pending"), // pending, quoted, in_progress, completed, archived
+  status: varchar("status", { length: 50 }).default("pending"), // pending, responded, quoted, in_progress, completed, archived
   quoteResponse: text("quote_response"),
   stripePaymentLink: varchar("stripe_payment_link", { length: 500 }),
+  agreementPdfUrl: varchar("agreement_pdf_url", { length: 500 }),
+  initialResponse: text("initial_response"),
+  quoteAmount: varchar("quote_amount", { length: 100 }),
+  emailHistory: text("email_history"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
