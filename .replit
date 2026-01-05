@@ -55,3 +55,4 @@ run = ["npm", "run", "start"]
 
 [userenv.shared]
 OWNER_EMAIL = "iamsahlien@gmail.com"
+GMAIL_APP_PASSWORD = "tkiiubwcubfnsrcm"
