@@ -1491,7 +1491,11 @@ function WebAppSection() {
 
   const openRequest = (request: WebAppRequest) => {
     setSelectedRequest(request);
-    resetForm();
+    setResponseText('');
+    setQuoteAmount(request.quoteAmount || '');
+    setStripePaymentLink(request.stripePaymentLink || '');
+    setAgreementPdfUrl(request.agreementPdfUrl || '');
+    setEmailType('response');
   };
 
   const filteredRequests = requests.filter(r => {
