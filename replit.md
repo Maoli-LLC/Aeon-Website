@@ -19,6 +19,12 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Styling**: Tailwind CSS v4 with custom theming
 - **UI Components**: shadcn/ui (Radix UI primitives)
 - **Routing**: React Router DOM v7
+- **Email**: Gmail SMTP with App Password (nodemailer) - preferred over OAuth for simplicity and reliability
+
+## User Preferences
+- **Email Integration**: Always use Gmail SMTP with App Password (not OAuth). Each app gets its own App Password for independence.
+- **Admin Access**: Only iamsahlien@gmail.com should see admin dashboard
+- **Search Logic**: Multi-word searches use OR logic (find posts containing ANY search word)
 
 ## Project Structure
 ```
