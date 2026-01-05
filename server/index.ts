@@ -7,7 +7,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { db } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
-import { sendEmail } from "./gmail";
+import { sendEmail, sendEmailWithAttachment } from "./gmail";
 
 const app = express();
 
@@ -855,68 +855,157 @@ async function main() {
   app.post("/api/admin/webapp-requests/:id/send-email", isAuthenticated, isOwner, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { quoteResponse, stripePaymentLink } = req.body;
+      const { emailType, responseText, quoteAmount, stripePaymentLink, agreementPdfUrl } = req.body;
       
       const [request] = await db.select().from(webAppRequests).where(eq(webAppRequests.id, id));
       if (!request) {
         return res.status(404).json({ message: "Request not found" });
       }
 
-      const htmlBody = `
-        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
-          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Website & App Creation</h1>
-          
-          <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
-          
-          <p style="font-size: 16px; line-height: 1.8;">Thank you for sharing your project vision with us. I've reviewed your request and have prepared a quote for you.</p>
-          
-          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
-            <h3 style="color: #d4af37; margin-top: 0;">Your Project:</h3>
-            <p style="color: #999; margin-top: 10px;"><strong>Type:</strong> ${request.projectType}</p>
-            <p style="font-style: italic; color: #ccc;">${request.description}</p>
+      const siteUrl = process.env.NODE_ENV === "production"
+        ? "https://www.iamsahlien.com"
+        : (process.env.REPLIT_DEV_DOMAIN 
+          ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
+          : "https://www.iamsahlien.com");
+
+      let htmlBody = '';
+      let subject = '';
+
+      if (emailType === 'response') {
+        subject = `Re: Your ${request.projectType} Project - Team Aeon`;
+        htmlBody = `
+          <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+            <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Website & App Creation</h1>
+            
+            <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
+            
+            <p style="font-size: 16px; line-height: 1.8;">Thank you for reaching out about your ${request.projectType} project.</p>
+            
+            <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+              <p style="line-height: 1.8; white-space: pre-wrap;">${responseText}</p>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.8;">If you have any questions, simply reply to this email.</p>
+            
+            <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
+            
+            <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from Team Aeon Website & App Creation Services.</p>
           </div>
-          
-          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
-            <h3 style="color: #d4af37; margin-top: 0;">My Response & Quote:</h3>
-            <p style="line-height: 1.8; white-space: pre-wrap;">${quoteResponse}</p>
+        `;
+      } else {
+        subject = `Your ${request.projectType} Project Quote - Team Aeon`;
+        htmlBody = `
+          <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+            <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Website & App Creation</h1>
+            
+            <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
+            
+            <p style="font-size: 16px; line-height: 1.8;">Thank you for sharing your project vision with us. I've reviewed your request and have prepared a quote for you.</p>
+            
+            <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+              <h3 style="color: #d4af37; margin-top: 0;">Your Project:</h3>
+              <p style="color: #999; margin-top: 10px;"><strong>Type:</strong> ${request.projectType}</p>
+              <p style="font-style: italic; color: #ccc;">${request.description}</p>
+            </div>
+            
+            <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+              <h3 style="color: #d4af37; margin-top: 0;">Quote Details:</h3>
+              ${quoteAmount ? `<p style="font-size: 20px; color: #d4af37; font-weight: bold; text-align: center; margin: 15px 0;">${quoteAmount}</p>` : ''}
+              <p style="line-height: 1.8; white-space: pre-wrap;">${responseText}</p>
+            </div>
+            
+            ${agreementPdfUrl ? `
+            <div style="background-color: #2a2a2a; padding: 20px; margin: 25px 0; border-radius: 4px; text-align: center;">
+              <p style="font-size: 14px; color: #ccc; margin: 0;">A service agreement is attached to this email. Please review it before proceeding.</p>
+            </div>
+            ` : ''}
+            
+            ${stripePaymentLink ? `
+            <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
+              <h3 style="color: #d4af37; margin-top: 0;">Ready to Proceed?</h3>
+              <p style="font-size: 14px; color: #999; margin-bottom: 20px;">By completing payment, you accept the terms of the attached agreement.</p>
+              <a href="${stripePaymentLink}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Accept & Pay</a>
+            </div>
+            ` : ''}
+            
+            <div style="background-color: #2a2a2a; padding: 20px; margin: 25px 0; border-radius: 4px;">
+              <p style="font-size: 14px; color: #ccc; margin: 0 0 10px 0;"><strong style="color: #d4af37;">Hosting:</strong> $25/month for reliable hosting and maintenance</p>
+              <p style="font-size: 14px; color: #999; margin: 0;">Additional upgrades and feature additions can be commissioned separately as your project evolves.</p>
+            </div>
+            
+            <p style="font-size: 16px; line-height: 1.8;">If you have any questions or would like to discuss the project further, simply reply to this email.</p>
+            
+            <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
+            
+            <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+            <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from Team Aeon Website & App Creation Services.</p>
           </div>
-          
-          ${stripePaymentLink ? `
-          <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
-            <h3 style="color: #d4af37; margin-top: 0;">Ready to Proceed?</h3>
-            <p style="font-size: 14px; color: #999; margin-bottom: 20px;">Click below to secure your project</p>
-            <a href="${stripePaymentLink}" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Proceed to Payment</a>
-          </div>
-          ` : ''}
-          
-          <div style="background-color: #2a2a2a; padding: 20px; margin: 25px 0; border-radius: 4px;">
-            <p style="font-size: 14px; color: #ccc; margin: 0 0 10px 0;"><strong style="color: #d4af37;">Hosting:</strong> $25/month for reliable hosting and maintenance</p>
-            <p style="font-size: 14px; color: #999; margin: 0;">Additional upgrades and feature additions can be commissioned separately as your project evolves.</p>
-          </div>
-          
-          <p style="font-size: 16px; line-height: 1.8;">If you have any questions or would like to discuss the project further, simply reply to this email.</p>
-          
-          <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
-          
-          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
-          <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from Team Aeon Website & App Creation Services.</p>
-        </div>
-      `;
+        `;
+      }
       
-      await sendEmail(
-        request.email,
-        "Your Website/App Project Quote - Team Aeon",
-        htmlBody
-      );
+      // Send email with or without attachment
+      if (emailType === 'quote' && agreementPdfUrl) {
+        const fullPdfUrl = agreementPdfUrl.startsWith('http') ? agreementPdfUrl : `${siteUrl}${agreementPdfUrl}`;
+        await sendEmailWithAttachment(
+          request.email,
+          subject,
+          htmlBody,
+          fullPdfUrl,
+          'Service_Agreement.pdf'
+        );
+      } else {
+        await sendEmail(request.email, subject, htmlBody);
+      }
       
-      // Update status to quoted after sending
-      await db.update(webAppRequests)
-        .set({ status: 'quoted', quoteResponse, stripePaymentLink, updatedAt: new Date() })
-        .where(eq(webAppRequests.id, id));
+      // Build email history entry
+      const historyEntry = {
+        type: emailType,
+        sentAt: new Date().toISOString(),
+        content: responseText,
+        ...(emailType === 'quote' && {
+          quoteAmount: quoteAmount || null,
+          stripePaymentLink: stripePaymentLink || null,
+          agreementPdfUrl: agreementPdfUrl || null,
+        })
+      };
       
-      res.json({ success: true, message: "Quote email sent successfully" });
+      // Parse existing email history or create new array
+      let emailHistory: any[] = [];
+      try {
+        emailHistory = request.emailHistory ? JSON.parse(request.emailHistory) : [];
+      } catch {
+        emailHistory = [];
+      }
+      emailHistory.push(historyEntry);
+      
+      // Update database based on email type - preserve existing data
+      if (emailType === 'response') {
+        await db.update(webAppRequests)
+          .set({ 
+            status: request.status === 'pending' ? 'responded' : request.status,
+            initialResponse: request.initialResponse || responseText,
+            emailHistory: JSON.stringify(emailHistory),
+            updatedAt: new Date() 
+          })
+          .where(eq(webAppRequests.id, id));
+      } else {
+        await db.update(webAppRequests)
+          .set({ 
+            status: 'quoted',
+            quoteResponse: responseText,
+            quoteAmount: quoteAmount || request.quoteAmount || null,
+            stripePaymentLink: stripePaymentLink || request.stripePaymentLink || null,
+            agreementPdfUrl: agreementPdfUrl || request.agreementPdfUrl || null,
+            emailHistory: JSON.stringify(emailHistory),
+            updatedAt: new Date() 
+          })
+          .where(eq(webAppRequests.id, id));
+      }
+      
+      res.json({ success: true, message: `${emailType === 'quote' ? 'Quote' : 'Response'} email sent successfully` });
     } catch (error) {
-      console.error("Error sending webapp quote email:", error);
+      console.error("Error sending webapp email:", error);
       res.status(500).json({ message: "Failed to send email" });
     }
   });

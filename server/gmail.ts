@@ -72,3 +72,56 @@ export async function sendEmail(to: string, subject: string, htmlBody: string, f
     }
   });
 }
+
+export async function sendEmailWithAttachment(
+  to: string, 
+  subject: string, 
+  htmlBody: string, 
+  attachmentUrl: string,
+  attachmentName: string = 'agreement.pdf',
+  from: string = 'Team Aeon <iamsahlien@gmail.com>'
+) {
+  const gmail = await getGmailClient();
+  
+  // Fetch the PDF from the URL
+  const pdfResponse = await fetch(attachmentUrl);
+  const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
+  const pdfBase64 = pdfBuffer.toString('base64');
+  
+  const boundary = `boundary_${Date.now()}`;
+  
+  const message = [
+    `From: ${from}`,
+    `To: ${to}`,
+    `Subject: ${subject}`,
+    'MIME-Version: 1.0',
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/html; charset=utf-8',
+    '',
+    htmlBody,
+    '',
+    `--${boundary}`,
+    `Content-Type: application/pdf; name="${attachmentName}"`,
+    'Content-Transfer-Encoding: base64',
+    `Content-Disposition: attachment; filename="${attachmentName}"`,
+    '',
+    pdfBase64,
+    '',
+    `--${boundary}--`
+  ].join('\n');
+
+  const encodedMessage = Buffer.from(message)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  await gmail.users.messages.send({
+    userId: 'me',
+    requestBody: {
+      raw: encodedMessage
+    }
+  });
+}

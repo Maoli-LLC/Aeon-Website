@@ -1408,11 +1408,27 @@ function WebAppSection() {
   const [requests, setRequests] = useState<WebAppRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<WebAppRequest | null>(null);
-  const [quoteResponse, setQuoteResponse] = useState('');
+  const [emailType, setEmailType] = useState<'response' | 'quote'>('response');
+  const [responseText, setResponseText] = useState('');
+  const [quoteAmount, setQuoteAmount] = useState('');
   const [stripePaymentLink, setStripePaymentLink] = useState('');
+  const [agreementPdfUrl, setAgreementPdfUrl] = useState('');
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: (response) => {
+      setAgreementPdfUrl(response.objectPath);
+    },
+  });
+
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await uploadFile(file);
+    }
+  };
 
   useEffect(() => {
     fetchRequests();
@@ -1440,24 +1456,42 @@ function WebAppSection() {
     setRequests(requests.filter(r => r.id !== id));
   };
 
-  const sendQuoteEmail = async () => {
-    if (!selectedRequest) return;
+  const sendEmail = async () => {
+    if (!selectedRequest || !responseText.trim()) return;
     setSending(true);
     try {
       await fetch(`/api/admin/webapp-requests/${selectedRequest.id}/send-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ quoteResponse, stripePaymentLink }),
+        body: JSON.stringify({ 
+          emailType,
+          responseText,
+          quoteAmount: emailType === 'quote' ? quoteAmount : undefined,
+          stripePaymentLink: emailType === 'quote' ? stripePaymentLink : undefined,
+          agreementPdfUrl: emailType === 'quote' ? agreementPdfUrl : undefined,
+        }),
       });
-      alert('Quote email sent successfully!');
+      alert(emailType === 'quote' ? 'Quote email sent successfully!' : 'Response email sent successfully!');
       setSelectedRequest(null);
-      setQuoteResponse('');
-      setStripePaymentLink('');
+      resetForm();
       fetchRequests();
     } catch (error) {
       alert('Failed to send email');
     }
     setSending(false);
+  };
+
+  const resetForm = () => {
+    setResponseText('');
+    setQuoteAmount('');
+    setStripePaymentLink('');
+    setAgreementPdfUrl('');
+    setEmailType('response');
+  };
+
+  const openRequest = (request: WebAppRequest) => {
+    setSelectedRequest(request);
+    resetForm();
   };
 
   const filteredRequests = requests.filter(r => {
@@ -1486,6 +1520,7 @@ function WebAppSection() {
           >
             <option value="all">All Statuses</option>
             <option value="pending">Pending</option>
+            <option value="responded">Responded</option>
             <option value="quoted">Quoted</option>
             <option value="in_progress">In Progress</option>
             <option value="completed">Completed</option>
@@ -1504,12 +1539,11 @@ function WebAppSection() {
       {selectedRequest ? (
         <div className="bg-card border border-primary/20 rounded-lg p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Send Quote to {selectedRequest.name}</h3>
+            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Email {selectedRequest.name}</h3>
             <button
               onClick={() => {
                 setSelectedRequest(null);
-                setQuoteResponse('');
-                setStripePaymentLink('');
+                resetForm();
               }}
               className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10"
             >
@@ -1534,33 +1568,148 @@ function WebAppSection() {
             )}
           </div>
 
+          {selectedRequest.emailHistory && (() => {
+            try {
+              const history = JSON.parse(selectedRequest.emailHistory);
+              if (history.length === 0) return null;
+              return (
+                <div className="bg-blue-500/10 border border-blue-500/30 rounded p-4 mb-6">
+                  <h4 className="text-blue-400 font-semibold mb-3">Email History ({history.length} sent)</h4>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {history.map((entry: any, idx: number) => (
+                      <div key={idx} className="bg-background/50 rounded p-3">
+                        <div className="flex justify-between items-center mb-2">
+                          <span className={`text-xs px-2 py-1 rounded ${
+                            entry.type === 'quote' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+                          }`}>
+                            {entry.type === 'quote' ? 'Quote' : 'Response'}
+                            {entry.quoteAmount && ` - ${entry.quoteAmount}`}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(entry.sentAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-white/80 text-sm whitespace-pre-wrap line-clamp-3">{entry.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            } catch {
+              return null;
+            }
+          })()}
+
           <div className="space-y-4">
             <div>
-              <label className="block text-primary mb-2">Your Quote Response</label>
+              <label className="block text-primary mb-2">Email Type</label>
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={() => setEmailType('response')}
+                  className={`px-4 py-2 rounded-md border transition-all ${
+                    emailType === 'response' 
+                      ? 'bg-primary text-black border-primary' 
+                      : 'border-primary/50 text-primary hover:bg-primary/10'
+                  }`}
+                >
+                  Response Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailType('quote')}
+                  className={`px-4 py-2 rounded-md border transition-all ${
+                    emailType === 'quote' 
+                      ? 'bg-primary text-black border-primary' 
+                      : 'border-primary/50 text-primary hover:bg-primary/10'
+                  }`}
+                >
+                  Quote + Agreement
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {emailType === 'response' 
+                  ? 'Send a response without a formal quote - good for initial discussions' 
+                  : 'Send a quote with price, payment link, and optional agreement PDF'}
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-primary mb-2">
+                {emailType === 'response' ? 'Your Response' : 'Quote Details'}
+              </label>
               <textarea
-                value={quoteResponse}
-                onChange={e => setQuoteResponse(e.target.value)}
-                placeholder="Describe the design concept, scope, timeline, and price..."
+                value={responseText}
+                onChange={e => setResponseText(e.target.value)}
+                placeholder={emailType === 'response' 
+                  ? "Write your response here - discuss the project, ask questions, etc..."
+                  : "Describe the design concept, scope, timeline, deliverables..."}
                 className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none h-48"
               />
             </div>
-            <div>
-              <label className="block text-primary mb-2">Stripe Payment Link (optional)</label>
-              <input
-                type="url"
-                value={stripePaymentLink}
-                onChange={e => setStripePaymentLink(e.target.value)}
-                placeholder="https://buy.stripe.com/..."
-                className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
-              />
-              <p className="text-xs text-muted-foreground mt-1">Create a payment link in Stripe Dashboard and paste it here</p>
-            </div>
+
+            {emailType === 'quote' && (
+              <>
+                <div>
+                  <label className="block text-primary mb-2">Quote Amount</label>
+                  <input
+                    type="text"
+                    value={quoteAmount}
+                    onChange={e => setQuoteAmount(e.target.value)}
+                    placeholder="e.g. $2,500 or $500 + $25/month hosting"
+                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-primary mb-2">Agreement PDF (optional)</label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="file"
+                      accept=".pdf"
+                      ref={fileInputRef}
+                      onChange={handlePdfUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploading}
+                      className="px-4 py-2 border border-primary/50 text-primary rounded-md hover:bg-primary/10 disabled:opacity-50"
+                    >
+                      {isUploading ? 'Uploading...' : 'Upload PDF'}
+                    </button>
+                    {agreementPdfUrl && (
+                      <span className="text-green-400 text-sm">PDF uploaded</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Upload a service agreement PDF to attach to the quote email
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-primary mb-2">Stripe Payment Link</label>
+                  <input
+                    type="url"
+                    value={stripePaymentLink}
+                    onChange={e => setStripePaymentLink(e.target.value)}
+                    placeholder="https://buy.stripe.com/..."
+                    className="w-full px-4 py-3 bg-background border border-primary/20 rounded-md text-white focus:border-primary focus:outline-none"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Payment = Agreement acceptance. When they pay, they accept the terms.
+                  </p>
+                </div>
+              </>
+            )}
+
             <button
-              onClick={sendQuoteEmail}
-              disabled={sending || !quoteResponse}
+              onClick={sendEmail}
+              disabled={sending || !responseText.trim()}
               className="px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 disabled:opacity-50"
             >
-              {sending ? 'Sending...' : 'Send Quote Email'}
+              {sending ? 'Sending...' : emailType === 'quote' ? 'Send Quote Email' : 'Send Response Email'}
             </button>
           </div>
         </div>
@@ -1585,21 +1734,23 @@ function WebAppSection() {
                     className={`px-3 py-1 rounded text-sm border ${
                       request.status === 'completed' ? 'border-green-500 text-green-400' :
                       request.status === 'quoted' ? 'border-blue-500 text-blue-400' :
+                      request.status === 'responded' ? 'border-purple-500 text-purple-400' :
                       request.status === 'in_progress' ? 'border-yellow-500 text-yellow-400' :
                       'border-primary text-primary'
                     } bg-background`}
                   >
                     <option value="pending">Pending</option>
+                    <option value="responded">Responded</option>
                     <option value="quoted">Quoted</option>
                     <option value="in_progress">In Progress</option>
                     <option value="completed">Completed</option>
                     <option value="archived">Archived</option>
                   </select>
                   <button
-                    onClick={() => setSelectedRequest(request)}
+                    onClick={() => openRequest(request)}
                     className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 text-sm"
                   >
-                    Send Quote
+                    Email
                   </button>
                   <button
                     onClick={() => deleteRequest(request.id)}
