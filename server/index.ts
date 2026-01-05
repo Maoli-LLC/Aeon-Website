@@ -1062,6 +1062,128 @@ async function main() {
     }
   });
 
+  // Resend last quote email (admin) - useful for fixing malformed links
+  app.post("/api/admin/webapp-requests/:id/resend-quote", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [request] = await db.select().from(webAppRequests).where(eq(webAppRequests.id, id));
+      if (!request) {
+        return res.status(404).json({ error: "Request not found" });
+      }
+      
+      // Need saved quote data to resend
+      if (!request.quoteResponse) {
+        return res.status(400).json({ error: "No quote has been sent for this request yet" });
+      }
+      
+      const siteUrl = process.env.REPLIT_DEV_DOMAIN 
+        ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+        : 'https://www.iamsahlien.com';
+      
+      // Clean the payment link
+      const stripePaymentLink = request.stripePaymentLink?.replace(/\s+/g, '') || '';
+      const quoteAmount = request.quoteAmount || '';
+      const agreementPdfUrl = request.agreementPdfUrl || '';
+      
+      console.log("Resending quote email with cleaned payment link:", stripePaymentLink);
+      
+      const subject = `Your ${request.projectType} Project Quote - Team Aeon`;
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Website & App Creation</h1>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Dear ${request.name},</p>
+          
+          <p style="font-size: 16px; line-height: 1.8;">Thank you for sharing your project vision with us. I've reviewed your request and have prepared a quote for you.</p>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Your Project:</h3>
+            <p style="color: #999; margin-top: 10px;"><strong>Type:</strong> ${request.projectType}</p>
+            <p style="font-style: italic; color: #ccc;">${request.description}</p>
+          </div>
+          
+          <div style="background-color: #2a2a2a; padding: 25px; border-left: 4px solid #d4af37; margin: 25px 0; border-radius: 4px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Quote Details:</h3>
+            ${quoteAmount ? `<p style="font-size: 20px; color: #d4af37; font-weight: bold; text-align: center; margin: 15px 0;">${quoteAmount}</p>` : ''}
+            <p style="line-height: 1.8; white-space: pre-wrap;">${request.quoteResponse}</p>
+          </div>
+          
+          ${agreementPdfUrl ? `
+          <div style="background-color: #2a2a2a; padding: 20px; margin: 25px 0; border-radius: 4px; text-align: center;">
+            <p style="font-size: 14px; color: #ccc; margin: 0;">A service agreement is attached to this email. Please review it before proceeding.</p>
+          </div>
+          ` : ''}
+          
+          ${stripePaymentLink ? `
+          <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
+            <h3 style="color: #d4af37; margin-top: 0;">Ready to Proceed?</h3>
+            <p style="font-size: 14px; color: #999; margin-bottom: 20px;">By completing payment, you accept the terms of the attached agreement.</p>
+            <a href="${stripePaymentLink}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Accept &amp; Pay</a>
+          </div>
+          ` : ''}
+          
+          <div style="background-color: #2a2a2a; padding: 20px; margin: 25px 0; border-radius: 4px;">
+            <p style="font-size: 14px; color: #ccc; margin: 0 0 10px 0;"><strong style="color: #d4af37;">Hosting:</strong> $25/month for reliable hosting and maintenance</p>
+            <p style="font-size: 14px; color: #999; margin: 0;">Additional upgrades and feature additions can be commissioned separately as your project evolves.</p>
+          </div>
+          
+          <p style="font-size: 16px; line-height: 1.8;">If you have any questions or would like to discuss the project further, simply reply to this email.</p>
+          
+          <p style="font-size: 16px; line-height: 1.8;">In harmonic resonance,<br><strong style="color: #d4af37;">Team Aeon</strong></p>
+          
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">This email was sent from Team Aeon Website & App Creation Services.</p>
+        </div>
+      `;
+      
+      // Send email with or without attachment
+      if (agreementPdfUrl) {
+        const fullPdfUrl = agreementPdfUrl.startsWith('http') ? agreementPdfUrl : `${siteUrl}${agreementPdfUrl}`;
+        await sendEmailWithAttachment(
+          request.email,
+          subject,
+          htmlBody,
+          fullPdfUrl,
+          'Service_Agreement.pdf'
+        );
+      } else {
+        await sendEmail(request.email, subject, htmlBody);
+      }
+      
+      // Add to email history
+      const historyEntry = {
+        type: 'quote_resend',
+        sentAt: new Date().toISOString(),
+        content: request.quoteResponse,
+        quoteAmount: quoteAmount || null,
+        stripePaymentLink: stripePaymentLink || null,
+        agreementPdfUrl: agreementPdfUrl || null,
+      };
+      
+      let emailHistory: any[] = [];
+      try {
+        emailHistory = request.emailHistory ? JSON.parse(request.emailHistory) : [];
+      } catch {
+        emailHistory = [];
+      }
+      emailHistory.push(historyEntry);
+      
+      // Update database with cleaned payment link
+      await db.update(webAppRequests)
+        .set({ 
+          stripePaymentLink: stripePaymentLink || null,
+          emailHistory: JSON.stringify(emailHistory),
+          updatedAt: new Date() 
+        })
+        .where(eq(webAppRequests.id, id));
+      
+      res.json({ success: true, message: "Quote email resent successfully with corrected link" });
+    } catch (error) {
+      console.error("Error resending quote email:", error);
+      res.status(500).json({ error: "Failed to resend email" });
+    }
+  });
+
   // Get all comments (admin)
   app.get("/api/admin/comments", isAuthenticated, isOwner, async (req, res) => {
     try {

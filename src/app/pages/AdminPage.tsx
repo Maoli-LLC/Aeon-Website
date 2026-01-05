@@ -1481,6 +1481,26 @@ function WebAppSection() {
     setSending(false);
   };
 
+  const resendLastQuote = async (request: WebAppRequest) => {
+    if (!confirm(`Resend the last quote email to ${request.name} (${request.email})? This will use the corrected payment link.`)) return;
+    setSending(true);
+    try {
+      const res = await fetch(`/api/admin/webapp-requests/${request.id}/resend-quote`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        alert('Quote email resent successfully!');
+        fetchRequests();
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to resend email');
+      }
+    } catch (error) {
+      alert('Failed to resend email');
+    }
+    setSending(false);
+  };
+
   const resetForm = () => {
     setResponseText('');
     setQuoteAmount('');
@@ -1584,9 +1604,9 @@ function WebAppSection() {
                       <div key={idx} className="bg-background/50 rounded p-3">
                         <div className="flex justify-between items-center mb-2">
                           <span className={`text-xs px-2 py-1 rounded ${
-                            entry.type === 'quote' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
+                            entry.type === 'quote' || entry.type === 'quote_resend' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
                           }`}>
-                            {entry.type === 'quote' ? 'Quote' : 'Response'}
+                            {entry.type === 'quote_resend' ? 'Quote (Resent)' : entry.type === 'quote' ? 'Quote' : 'Response'}
                             {entry.quoteAmount && ` - ${entry.quoteAmount}`}
                           </span>
                           <span className="text-xs text-muted-foreground">
@@ -1756,6 +1776,15 @@ function WebAppSection() {
                   >
                     Email
                   </button>
+                  {(request.status === 'quoted' || request.stripePaymentLink) && (
+                    <button
+                      onClick={() => resendLastQuote(request)}
+                      disabled={sending}
+                      className="px-3 py-2 text-sm border border-blue-500 text-blue-400 rounded hover:bg-blue-500/20 disabled:opacity-50"
+                    >
+                      Resend Quote
+                    </button>
+                  )}
                   <button
                     onClick={() => deleteRequest(request.id)}
                     className="px-3 py-2 text-sm border border-red-500 text-red-400 rounded hover:bg-red-500/20"
