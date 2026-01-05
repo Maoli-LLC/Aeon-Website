@@ -904,6 +904,8 @@ async function main() {
       const id = parseInt(req.params.id);
       const { emailType, responseText, quoteAmount, stripePaymentLink, agreementPdfUrl } = req.body;
       
+      console.log("Sending webapp email:", { emailType, quoteAmount, stripePaymentLink: stripePaymentLink || 'EMPTY', agreementPdfUrl: agreementPdfUrl || 'EMPTY' });
+      
       const [request] = await db.select().from(webAppRequests).where(eq(webAppRequests.id, id));
       if (!request) {
         return res.status(404).json({ message: "Request not found" });
