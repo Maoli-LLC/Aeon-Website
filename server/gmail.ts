@@ -1,10 +1,83 @@
 import { google } from 'googleapis';
 
-let connectionSettings: any;
+let cachedAccessToken: string | null = null;
+let tokenExpiresAt: number = 0;
 
-async function getAccessToken() {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
+function getOAuth2Client() {
+  const clientId = process.env.GMAIL_CLIENT_ID;
+  const clientSecret = process.env.GMAIL_CLIENT_SECRET;
+  
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+  
+  const redirectUri = process.env.NODE_ENV === 'production'
+    ? 'https://www.iamsahlien.com/api/gmail/callback'
+    : `https://${process.env.REPLIT_DEV_DOMAIN}/api/gmail/callback`;
+  
+  return new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+}
+
+export function getGmailAuthUrl(): string | null {
+  const oauth2Client = getOAuth2Client();
+  if (!oauth2Client) return null;
+  
+  return oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: [
+      'https://www.googleapis.com/auth/gmail.send',
+      'https://www.googleapis.com/auth/gmail.readonly'
+    ]
+  });
+}
+
+export async function exchangeCodeForTokens(code: string): Promise<{ refresh_token: string; access_token: string }> {
+  const oauth2Client = getOAuth2Client();
+  if (!oauth2Client) {
+    throw new Error('Gmail OAuth not configured');
+  }
+  
+  const { tokens } = await oauth2Client.getToken(code);
+  if (!tokens.refresh_token || !tokens.access_token) {
+    throw new Error('Failed to get tokens from Google');
+  }
+  
+  return {
+    refresh_token: tokens.refresh_token,
+    access_token: tokens.access_token
+  };
+}
+
+async function getAccessToken(): Promise<string> {
+  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
+  
+  if (refreshToken) {
+    if (cachedAccessToken && tokenExpiresAt > Date.now()) {
+      return cachedAccessToken;
+    }
+    
+    const oauth2Client = getOAuth2Client();
+    if (!oauth2Client) {
+      throw new Error('Gmail OAuth credentials not configured');
+    }
+    
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      cachedAccessToken = credentials.access_token || null;
+      tokenExpiresAt = credentials.expiry_date || Date.now() + 3500000;
+      
+      if (!cachedAccessToken) {
+        throw new Error('Failed to refresh access token');
+      }
+      
+      return cachedAccessToken;
+    } catch (error) {
+      console.error('Error refreshing Gmail token:', error);
+      throw new Error('Gmail token expired - please re-authorize in admin settings');
+    }
   }
   
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -14,8 +87,8 @@ async function getAccessToken() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (!hostname || !xReplitToken) {
+    throw new Error('Gmail not configured - add GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, and GMAIL_REFRESH_TOKEN to secrets');
   }
 
   const response = await fetch(
@@ -29,19 +102,22 @@ async function getAccessToken() {
   );
   
   const data = await response.json();
-  connectionSettings = data.items?.[0];
+  const connectionSettings = data.items?.[0];
   
   if (!connectionSettings || !connectionSettings.settings) {
-    console.error('Gmail connection response:', JSON.stringify(data, null, 2));
-    throw new Error('Gmail not connected - please reconnect the Google Mail integration');
+    throw new Error('Gmail not connected - configure project secrets or reconnect integration');
   }
 
   const accessToken = connectionSettings.settings?.access_token || connectionSettings.settings?.oauth?.credentials?.access_token;
 
-  if (!connectionSettings || !accessToken) {
+  if (!accessToken) {
     throw new Error('Gmail not connected');
   }
   return accessToken;
+}
+
+export function isGmailConfigured(): boolean {
+  return !!(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN);
 }
 
 export async function getGmailClient() {
@@ -91,7 +167,6 @@ export async function sendEmailWithAttachment(
 ) {
   const gmail = await getGmailClient();
   
-  // Fetch the PDF from the URL
   const pdfResponse = await fetch(attachmentUrl);
   const pdfBuffer = Buffer.from(await pdfResponse.arrayBuffer());
   const pdfBase64 = pdfBuffer.toString('base64');

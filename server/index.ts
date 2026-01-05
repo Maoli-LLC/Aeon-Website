@@ -7,7 +7,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { db } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
-import { sendEmail, sendEmailWithAttachment } from "./gmail";
+import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
 
 const app = express();
 
@@ -329,6 +329,53 @@ async function main() {
   // Check if current user is owner
   app.get("/api/admin/check", isAuthenticated, isOwner, async (req, res) => {
     res.json({ isOwner: true });
+  });
+
+  // Gmail OAuth status
+  app.get("/api/admin/gmail/status", isAuthenticated, isOwner, async (req, res) => {
+    res.json({ 
+      configured: isGmailConfigured(),
+      hasClientCredentials: !!(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET)
+    });
+  });
+
+  // Get Gmail OAuth URL for authorization
+  app.get("/api/admin/gmail/auth-url", isAuthenticated, isOwner, async (req, res) => {
+    const authUrl = getGmailAuthUrl();
+    if (!authUrl) {
+      return res.status(400).json({ 
+        error: "Gmail OAuth not configured. Add GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET to secrets first." 
+      });
+    }
+    res.json({ authUrl });
+  });
+
+  // Gmail OAuth callback
+  app.get("/api/gmail/callback", async (req, res) => {
+    const code = req.query.code as string;
+    if (!code) {
+      return res.status(400).send("Missing authorization code");
+    }
+    
+    try {
+      const tokens = await exchangeCodeForTokens(code);
+      res.send(`
+        <html>
+          <head><title>Gmail Connected</title></head>
+          <body style="font-family: Georgia, serif; background: #1a1a1a; color: #e5e5e5; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
+            <div style="text-align: center; max-width: 500px; padding: 40px;">
+              <h1 style="color: #d4af37;">Gmail Connected!</h1>
+              <p>Copy this refresh token and add it as <strong>GMAIL_REFRESH_TOKEN</strong> in your Replit secrets:</p>
+              <textarea style="width: 100%; height: 100px; background: #2a2a2a; color: #fff; border: 1px solid #d4af37; padding: 10px; font-family: monospace;" readonly>${tokens.refresh_token}</textarea>
+              <p style="margin-top: 20px;">After adding the secret, restart the server and you're all set!</p>
+            </div>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error("Gmail OAuth error:", error);
+      res.status(500).send("Failed to authorize Gmail. Please try again.");
+    }
   });
 
   // Get all blog posts (admin)
