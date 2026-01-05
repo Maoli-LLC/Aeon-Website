@@ -904,8 +904,11 @@ async function main() {
       const id = parseInt(req.params.id);
       const { emailType, responseText, quoteAmount, stripePaymentLink: rawStripeLink, agreementPdfUrl } = req.body;
       
-      // Clean up the Stripe link - remove any spaces
-      const stripePaymentLink = rawStripeLink ? rawStripeLink.replace(/\s+/g, '') : '';
+      // Clean up the Stripe link - remove any spaces and ensure https:// prefix
+      let stripePaymentLink = rawStripeLink ? rawStripeLink.replace(/\s+/g, '').trim() : '';
+      if (stripePaymentLink && !stripePaymentLink.startsWith('http://') && !stripePaymentLink.startsWith('https://')) {
+        stripePaymentLink = 'https://' + stripePaymentLink;
+      }
       
       console.log("Sending webapp email:", { emailType, quoteAmount, stripePaymentLink: stripePaymentLink || 'EMPTY', agreementPdfUrl: agreementPdfUrl || 'EMPTY' });
       
@@ -1080,8 +1083,11 @@ async function main() {
         ? `https://${process.env.REPLIT_DEV_DOMAIN}`
         : 'https://www.iamsahlien.com';
       
-      // Clean the payment link
-      const stripePaymentLink = request.stripePaymentLink?.replace(/\s+/g, '') || '';
+      // Clean the payment link and ensure https:// prefix
+      let stripePaymentLink = request.stripePaymentLink?.replace(/\s+/g, '').trim() || '';
+      if (stripePaymentLink && !stripePaymentLink.startsWith('http://') && !stripePaymentLink.startsWith('https://')) {
+        stripePaymentLink = 'https://' + stripePaymentLink;
+      }
       const quoteAmount = request.quoteAmount || '';
       const agreementPdfUrl = request.agreementPdfUrl || '';
       
