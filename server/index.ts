@@ -902,7 +902,10 @@ async function main() {
   app.post("/api/admin/webapp-requests/:id/send-email", isAuthenticated, isOwner, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { emailType, responseText, quoteAmount, stripePaymentLink, agreementPdfUrl } = req.body;
+      const { emailType, responseText, quoteAmount, stripePaymentLink: rawStripeLink, agreementPdfUrl } = req.body;
+      
+      // Clean up the Stripe link - remove any spaces
+      const stripePaymentLink = rawStripeLink ? rawStripeLink.replace(/\s+/g, '') : '';
       
       console.log("Sending webapp email:", { emailType, quoteAmount, stripePaymentLink: stripePaymentLink || 'EMPTY', agreementPdfUrl: agreementPdfUrl || 'EMPTY' });
       
