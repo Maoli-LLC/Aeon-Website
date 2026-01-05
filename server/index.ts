@@ -977,7 +977,7 @@ async function main() {
             <div style="background-color: #2a2a2a; padding: 25px; text-align: center; margin: 30px 0; border-radius: 8px;">
               <h3 style="color: #d4af37; margin-top: 0;">Ready to Proceed?</h3>
               <p style="font-size: 14px; color: #999; margin-bottom: 20px;">By completing payment, you accept the terms of the attached agreement.</p>
-              <a href="${stripePaymentLink}" target="_blank" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Accept & Pay</a>
+              <a href="${stripePaymentLink}" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 15px 30px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold;">Accept &amp; Pay</a>
             </div>
             ` : ''}
             
