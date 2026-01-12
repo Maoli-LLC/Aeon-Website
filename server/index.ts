@@ -678,7 +678,7 @@ async function main() {
         return res.status(404).json({ message: "Dream request not found" });
       }
 
-      const amplifierLink = "https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i";
+      const amplifierLink = "https://buy.stripe.com/eVqaEZb6d5fw5Ef9P9bEA04";
       
       const htmlBody = `
         <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
@@ -781,8 +781,8 @@ async function main() {
         return res.status(404).json({ message: "Music request not found" });
       }
 
-      const singleSongLink = "https://buy.stripe.com/14AaEWayD2JGgoSfB87Vm0j";
-      const fullAlbumLink = "https://buy.stripe.com/aFa5kC2278408WqagO7Vm0l";
+      const singleSongLink = "https://buy.stripe.com/6oUdRb4HP5fw2s32mHbEA03";
+      const fullAlbumLink = "https://buy.stripe.com/bJe8wRgqxazQ4Abf9tbEA02";
       
       const htmlBody = `
         <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
@@ -994,7 +994,7 @@ async function main() {
               <p style="font-size: 14px; color: #ccc; margin: 0 0 15px 0;"><strong style="color: #d4af37;">Hosting:</strong> $25/month for reliable hosting and maintenance</p>
               <p style="font-size: 14px; color: #999; margin: 0 0 20px 0;">Additional upgrades and feature additions can be commissioned separately as your project evolves.</p>
               <div style="text-align: center;">
-                <a href="https://buy.stripe.com/3cIfZg227ckg1tY1Ki7Vm0m" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 25px; background-color: transparent; color: #d4af37; text-decoration: none; border: 2px solid #d4af37; border-radius: 4px; font-size: 14px; font-weight: bold;">Hosting</a>
+                <a href="https://buy.stripe.com/28E9AV6PX0ZgaYz1iDbEA01" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 25px; background-color: transparent; color: #d4af37; text-decoration: none; border: 2px solid #d4af37; border-radius: 4px; font-size: 14px; font-weight: bold;">Hosting</a>
               </div>
             </div>
             
@@ -1141,7 +1141,7 @@ async function main() {
             <p style="font-size: 14px; color: #ccc; margin: 0 0 15px 0;"><strong style="color: #d4af37;">Hosting:</strong> $25/month for reliable hosting and maintenance</p>
             <p style="font-size: 14px; color: #999; margin: 0 0 20px 0;">Additional upgrades and feature additions can be commissioned separately as your project evolves.</p>
             <div style="text-align: center;">
-              <a href="https://buy.stripe.com/3cIfZg227ckg1tY1Ki7Vm0m" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 25px; background-color: transparent; color: #d4af37; text-decoration: none; border: 2px solid #d4af37; border-radius: 4px; font-size: 14px; font-weight: bold;">Hosting</a>
+              <a href="https://buy.stripe.com/28E9AV6PX0ZgaYz1iDbEA01" target="_blank" rel="noopener noreferrer" style="display: inline-block; padding: 12px 25px; background-color: transparent; color: #d4af37; text-decoration: none; border: 2px solid #d4af37; border-radius: 4px; font-size: 14px; font-weight: bold;">Hosting</a>
             </div>
           </div>
           

@@ -195,7 +195,7 @@ export function DreamLatticePage() {
               Amplifier support is not payment—it is voluntary energy exchange for those who resonate with the work.
             </p>
             <a
-              href="https://buy.stripe.com/dRm14mdKP3NK6Oi74C7Vm0i"
+              href="https://buy.stripe.com/eVqaEZb6d5fw5Ef9P9bEA04"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block px-8 py-4 border border-primary text-primary rounded-md hover:bg-primary hover:text-black transition-all"

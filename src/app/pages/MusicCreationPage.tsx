@@ -194,7 +194,7 @@ export function MusicCreationPage() {
                   <li>• WAV & MP3 formats</li>
                 </ul>
                 <a 
-                  href="https://buy.stripe.com/14AaEWayD2JGgoSfB87Vm0j"
+                  href="https://buy.stripe.com/6oUdRb4HP5fw2s32mHbEA03"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors text-center"
@@ -225,7 +225,7 @@ export function MusicCreationPage() {
                   <li>• Mastering & formats</li>
                 </ul>
                 <a 
-                  href="https://buy.stripe.com/aFa5kC2278408WqagO7Vm0l"
+                  href="https://buy.stripe.com/bJe8wRgqxazQ4Abf9tbEA02"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block w-full px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors text-center"
