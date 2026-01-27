@@ -3171,116 +3171,33 @@ function BillingSection() {
                   {client.projects.length === 0 ? (
                     <p className="text-muted-foreground text-sm">No projects yet.</p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-2">
                       {client.projects.map(project => (
-                        <div key={project.id} className="bg-background border border-primary/30 rounded p-4">
-                          <div className="flex items-start justify-between mb-3">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h4 className="text-white font-medium">{project.projectName}</h4>
-                                {project.hostingType && (
-                                  <span className={`px-2 py-0.5 text-xs rounded ${
-                                    project.hostingType === 'webapp' ? 'bg-blue-500/20 text-blue-400' :
-                                    project.hostingType === 'mobile' ? 'bg-purple-500/20 text-purple-400' :
-                                    project.hostingType === 'website' ? 'bg-green-500/20 text-green-400' :
-                                    'bg-gray-500/20 text-gray-400'
-                                  }`}>
-                                    {project.hostingType === 'webapp' ? 'Web App' : 
-                                     project.hostingType === 'mobile' ? 'Mobile' : 
-                                     project.hostingType === 'website' ? 'Website' : 
-                                     project.hostingType}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={project.paymentStatus || 'pending'}
-                                onChange={e => updatePaymentStatus(project.id, e.target.value)}
-                                className={`px-2 py-1 rounded text-sm border ${
-                                  project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400 border-green-500' :
-                                  project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400 border-red-500' :
-                                  'bg-yellow-500/20 text-yellow-400 border-yellow-500'
-                                }`}
-                              >
-                                <option value="pending">Pending</option>
-                                <option value="paid">Paid</option>
-                                <option value="overdue">Overdue</option>
-                              </select>
-                            </div>
+                        <div key={project.id} className="flex items-center justify-between bg-background border border-primary/30 rounded px-3 py-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-white">{project.projectName}</span>
+                            {project.hostingType && (
+                              <span className={`px-2 py-0.5 text-xs rounded ${
+                                project.hostingType === 'webapp' ? 'bg-blue-500/20 text-blue-400' :
+                                project.hostingType === 'mobile' ? 'bg-purple-500/20 text-purple-400' :
+                                project.hostingType === 'website' ? 'bg-green-500/20 text-green-400' :
+                                'bg-gray-500/20 text-gray-400'
+                              }`}>
+                                {project.hostingType === 'webapp' ? 'Web App' : 
+                                 project.hostingType === 'mobile' ? 'Mobile' : 
+                                 project.hostingType === 'website' ? 'Website' : 
+                                 project.hostingType}
+                              </span>
+                            )}
                           </div>
-
-                          <div className="grid md:grid-cols-2 gap-2 text-sm mb-3">
-                            {project.amount && <div><span className="text-muted-foreground">Amount:</span> <span className="text-primary">{project.amount}</span></div>}
-                            {project.nextPaymentDue && formatDate(project.nextPaymentDue, 'MMM d, yyyy') && <div><span className="text-muted-foreground">Next Due:</span> <span className="text-white">{formatDate(project.nextPaymentDue, 'MMM d, yyyy')}</span></div>}
-                          </div>
-
-                          {project.stripePaymentLink && (
-                            <div className="mb-3">
-                              <a href={project.stripePaymentLink} target="_blank" rel="noopener noreferrer" className="text-primary text-sm hover:underline break-all">
-                                {project.stripePaymentLink}
-                              </a>
-                            </div>
-                          )}
-
-                          {project.attachments.length > 0 && (
-                            <div className="mb-3">
-                              <p className="text-muted-foreground text-sm mb-2">Attachments:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {project.attachments.map(att => (
-                                  <div key={att.id} className="relative group">
-                                    <a href={att.fileUrl} target="_blank" rel="noopener noreferrer">
-                                      <img src={att.fileUrl} alt={att.fileName} className="w-20 h-20 object-cover rounded border border-primary/30" />
-                                    </a>
-                                    <button
-                                      onClick={() => deleteAttachment(att.id)}
-                                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                    >
-                                      ×
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-primary/20">
-                            <button
-                              onClick={() => sendPaymentLink(client, project)}
-                              disabled={sendingPayment === project.id || !project.stripePaymentLink}
-                              className="px-3 py-1 text-sm bg-primary text-black rounded hover:bg-primary/90 disabled:opacity-50"
-                            >
-                              {sendingPayment === project.id ? 'Sending...' : 'Send Payment Link'}
-                            </button>
-                            <label className="px-3 py-1 text-sm border border-primary text-primary rounded cursor-pointer hover:bg-primary/10">
-                              {isUploading && uploadingFor === project.id ? 'Uploading...' : '+ Screenshot'}
-                              <input
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={e => handleFileUpload(e, project.id)}
-                              />
-                            </label>
-                            <button
-                              onClick={() => {
-                                setEditingProject(project);
-                                setProjectForm({
-                                  projectName: project.projectName,
-                                  projectType: project.hostingType || 'webapp',
-                                });
-                                setShowProjectForm(client.id);
-                              }}
-                              className="px-3 py-1 text-sm border border-primary text-primary rounded hover:bg-primary/10"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={() => deleteProject(project.id)}
-                              className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500/10"
-                            >
-                              Delete
-                            </button>
-                          </div>
+                          <button
+                            onClick={() => {
+                              if (confirm('Delete this project?')) deleteProject(project.id);
+                            }}
+                            className="text-red-400 hover:text-red-300 text-sm"
+                          >
+                            Delete
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -3294,3 +3211,4 @@ function BillingSection() {
     </div>
   );
 }
+
