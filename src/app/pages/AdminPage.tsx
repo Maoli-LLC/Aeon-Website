@@ -2859,7 +2859,7 @@ function BillingSection() {
                   <th className="text-left p-2 text-primary">Amount</th>
                   <th className="text-left p-2 text-primary">Status</th>
                   <th className="text-left p-2 text-primary">Due Date</th>
-                  <th className="text-left p-2 text-primary">Action</th>
+                  <th className="text-left p-2 text-primary">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -2886,7 +2886,7 @@ function BillingSection() {
                     <td className="p-2 text-muted-foreground">
                       {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 flex gap-2">
                       {project.stripePaymentLink && (
                         <button
                           onClick={() => {
@@ -2899,6 +2899,14 @@ function BillingSection() {
                           {sendingPayment === project.id ? 'Sending...' : 'Send Reminder'}
                         </button>
                       )}
+                      <button
+                        onClick={() => {
+                          if (confirm('Delete this project?')) deleteProject(project.id);
+                        }}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -2931,6 +2939,7 @@ function BillingSection() {
                   <th className="text-left p-2 text-primary">Type</th>
                   <th className="text-left p-2 text-primary">Status</th>
                   <th className="text-left p-2 text-primary">Due Date</th>
+                  <th className="text-left p-2 text-primary">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -2952,6 +2961,16 @@ function BillingSection() {
                     </td>
                     <td className="p-2 text-muted-foreground">
                       {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
+                    </td>
+                    <td className="p-2">
+                      <button
+                        onClick={() => {
+                          if (confirm('Delete this project?')) deleteProject(project.id);
+                        }}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
                     </td>
                   </tr>
                 ))}
