@@ -51,7 +51,7 @@ async function main() {
     try {
       const unsubscribeToken = crypto.randomBytes(32).toString('hex');
       await db.insert(emailSubscribers).values({
-        email,
+        email: email.toLowerCase(),
         name,
         unsubscribeToken,
       }).onConflictDoNothing();
@@ -1854,24 +1854,26 @@ async function main() {
     }
   });
 
-  // Update billing project
+  // Update billing project (partial update - only updates provided fields)
   app.put("/api/admin/billing/projects/:id", isAuthenticated, isOwner, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { projectName, description, stripePaymentLink, amount, paymentStatus, projectStatus, hostingType, nextPaymentDue, notes } = req.body;
+      
+      // Build partial update object - only include fields that were actually provided
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      if (projectName !== undefined) updateData.projectName = projectName;
+      if (description !== undefined) updateData.description = description;
+      if (stripePaymentLink !== undefined) updateData.stripePaymentLink = stripePaymentLink;
+      if (amount !== undefined) updateData.amount = amount;
+      if (paymentStatus !== undefined) updateData.paymentStatus = paymentStatus;
+      if (projectStatus !== undefined) updateData.projectStatus = projectStatus;
+      if (hostingType !== undefined) updateData.hostingType = hostingType;
+      if (nextPaymentDue !== undefined) updateData.nextPaymentDue = nextPaymentDue ? new Date(nextPaymentDue) : null;
+      if (notes !== undefined) updateData.notes = notes;
+      
       const [updated] = await db.update(billingProjects)
-        .set({ 
-          projectName, 
-          description, 
-          stripePaymentLink, 
-          amount, 
-          paymentStatus, 
-          projectStatus, 
-          hostingType,
-          nextPaymentDue: nextPaymentDue ? new Date(nextPaymentDue) : null,
-          notes,
-          updatedAt: new Date() 
-        })
+        .set(updateData)
         .where(eq(billingProjects.id, id))
         .returning();
       res.json(updated);

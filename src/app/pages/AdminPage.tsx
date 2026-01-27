@@ -2142,6 +2142,18 @@ function AnalyticsSection() {
 function BillingSection() {
   const [clients, setClients] = useState<BillingClientWithProjects[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Safe date formatter to handle invalid dates
+  const formatDate = (dateValue: Date | string | null | undefined, formatStr: string): string => {
+    if (!dateValue) return '';
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return '';
+      return format(date, formatStr);
+    } catch {
+      return '';
+    }
+  };
   const [showClientForm, setShowClientForm] = useState(false);
   const [editingClient, setEditingClient] = useState<BillingClient | null>(null);
   const [showProjectForm, setShowProjectForm] = useState<number | null>(null);
@@ -2478,7 +2490,7 @@ function BillingSection() {
                           <div className="grid md:grid-cols-3 gap-2 text-sm mb-3">
                             {project.amount && <div><span className="text-muted-foreground">Amount:</span> <span className="text-primary">{project.amount}</span></div>}
                             {project.hostingType && <div><span className="text-muted-foreground">Type:</span> <span className="text-white capitalize">{project.hostingType}</span></div>}
-                            {project.nextPaymentDue && <div><span className="text-muted-foreground">Next Due:</span> <span className="text-white">{format(new Date(project.nextPaymentDue), 'MMM d, yyyy')}</span></div>}
+                            {project.nextPaymentDue && formatDate(project.nextPaymentDue, 'MMM d, yyyy') && <div><span className="text-muted-foreground">Next Due:</span> <span className="text-white">{formatDate(project.nextPaymentDue, 'MMM d, yyyy')}</span></div>}
                           </div>
 
                           {project.stripePaymentLink && (
@@ -2536,7 +2548,7 @@ function BillingSection() {
                                   stripePaymentLink: project.stripePaymentLink || '',
                                   amount: project.amount || '',
                                   hostingType: project.hostingType || 'monthly',
-                                  nextPaymentDue: project.nextPaymentDue ? format(new Date(project.nextPaymentDue), 'yyyy-MM-dd') : '',
+                                  nextPaymentDue: formatDate(project.nextPaymentDue, 'yyyy-MM-dd'),
                                   notes: project.notes || '',
                                 });
                                 setShowProjectForm(client.id);
