@@ -43,6 +43,7 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Email**: Gmail SMTP with App Password (nodemailer) - preferred over OAuth for simplicity and reliability
 
 ## User Preferences
+- **Database**: ONLY use Supabase (SUPABASE_DATABASE_URL). NEVER use Replit database (DATABASE_URL, PGHOST, etc.). This is enforced in server/db.ts.
 - **Email Integration**: Always use Gmail SMTP with App Password (not OAuth). Each app gets its own App Password for independence.
 - **Admin Access**: Only iamsahlien@gmail.com should see admin dashboard
 - **Search Logic**: Multi-word searches use OR logic (find posts containing ANY search word)
