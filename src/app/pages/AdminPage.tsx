@@ -2559,9 +2559,11 @@ function BillingSection() {
 
   // Calculate summary stats
   const allProjects = clients.flatMap(c => c.projects.map(p => ({ ...p, clientName: c.name, clientEmail: c.email })));
-  const pendingProjects = allProjects.filter(p => p.paymentStatus === 'pending');
-  const overdueProjects = allProjects.filter(p => p.paymentStatus === 'overdue');
-  const paidProjects = allProjects.filter(p => p.paymentStatus === 'paid');
+  // Invoiced projects = projects where an invoice was sent (has amount or payment link)
+  const invoicedProjects = allProjects.filter(p => p.amount || p.stripePaymentLink);
+  const pendingProjects = invoicedProjects.filter(p => p.paymentStatus === 'pending');
+  const overdueProjects = invoicedProjects.filter(p => p.paymentStatus === 'overdue');
+  const paidProjects = invoicedProjects.filter(p => p.paymentStatus === 'paid');
 
   // Export to CSV
   const exportToCSV = () => {
@@ -2917,16 +2919,59 @@ function BillingSection() {
         </div>
       )}
 
-      {/* All Payments Table */}
+      {/* All Projects Table */}
       {allProjects.length > 0 && (
+        <div className="bg-card border border-blue-500/20 rounded-lg p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl text-blue-400" style={{ fontFamily: "'Cinzel', serif" }}>All Projects</h3>
+            <span className="text-muted-foreground text-sm">{allProjects.length} total</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-blue-500/20">
+                  <th className="text-left p-2 text-blue-400">Client</th>
+                  <th className="text-left p-2 text-blue-400">Project</th>
+                  <th className="text-left p-2 text-blue-400">Type</th>
+                  <th className="text-left p-2 text-blue-400">Status</th>
+                  <th className="text-left p-2 text-blue-400">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allProjects.map(project => (
+                  <tr key={project.id} className="border-b border-blue-500/10 hover:bg-blue-500/5">
+                    <td className="p-2 text-white">{project.clientName}</td>
+                    <td className="p-2 text-white">{project.projectName}</td>
+                    <td className="p-2 text-muted-foreground">{project.hostingType || '-'}</td>
+                    <td className="p-2 text-muted-foreground">{project.projectStatus || 'active'}</td>
+                    <td className="p-2">
+                      <button
+                        onClick={() => {
+                          if (confirm('Delete this project?')) deleteProject(project.id);
+                        }}
+                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* All Payments Table - Only shows invoiced projects */}
+      {invoicedProjects.length > 0 && (
         <div className="bg-card border border-primary/20 rounded-lg p-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>All Payments</h3>
+            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>All Payments (Invoiced)</h3>
             <button
               onClick={exportToCSV}
               className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 flex items-center gap-2"
             >
-              📥 Export All to CSV
+              Export All to CSV
             </button>
           </div>
           <div className="overflow-x-auto">
@@ -2944,7 +2989,7 @@ function BillingSection() {
                 </tr>
               </thead>
               <tbody>
-                {allProjects.map(project => (
+                {invoicedProjects.map(project => (
                   <tr key={project.id} className="border-b border-primary/10 hover:bg-primary/5">
                     <td className="p-2 text-white">{project.clientName}</td>
                     <td className="p-2 text-muted-foreground text-xs">{project.clientEmail}</td>
