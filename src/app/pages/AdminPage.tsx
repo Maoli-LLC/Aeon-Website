@@ -2195,9 +2195,18 @@ function BillingSection() {
   }, []);
 
   const fetchClients = async () => {
-    const res = await fetch('/api/admin/billing/clients');
-    const data = await res.json();
-    setClients(data);
+    try {
+      const res = await fetch('/api/admin/billing/clients');
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setClients(data);
+      } else {
+        setClients([]);
+      }
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      setClients([]);
+    }
     setLoading(false);
   };
 
