@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
@@ -2144,6 +2144,55 @@ async function main() {
       console.log(`Production server running on port ${PORT}`);
     });
   } else {
+    // Initialize billing tables if they don't exist
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS billing_clients (
+          id SERIAL PRIMARY KEY,
+          email VARCHAR(255) NOT NULL UNIQUE,
+          name VARCHAR(255),
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS billing_projects (
+          id SERIAL PRIMARY KEY,
+          client_id INTEGER NOT NULL REFERENCES billing_clients(id) ON DELETE CASCADE,
+          project_name VARCHAR(255) NOT NULL,
+          description TEXT,
+          stripe_payment_link VARCHAR(500),
+          amount_billed NUMERIC(10,2) DEFAULT 0,
+          amount_paid NUMERIC(10,2) DEFAULT 0,
+          payment_status VARCHAR(50) DEFAULT 'pending',
+          project_status VARCHAR(50) DEFAULT 'active',
+          notes TEXT,
+          next_payment_due DATE,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS billing_attachments (
+          id SERIAL PRIMARY KEY,
+          project_id INTEGER NOT NULL REFERENCES billing_projects(id) ON DELETE CASCADE,
+          file_name VARCHAR(255) NOT NULL,
+          file_url TEXT NOT NULL,
+          file_type VARCHAR(100),
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS billing_line_items (
+          id SERIAL PRIMARY KEY,
+          project_id INTEGER NOT NULL REFERENCES billing_projects(id) ON DELETE CASCADE,
+          description VARCHAR(500) NOT NULL,
+          quantity INTEGER DEFAULT 1,
+          unit_price NUMERIC(10,2) NOT NULL,
+          total NUMERIC(10,2) NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+      `);
+      console.log('Billing tables initialized');
+    } catch (err) {
+      console.log('Billing tables check:', (err as Error).message);
+    }
+
     const PORT = 3001;
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Backend server running on port ${PORT}`);
