@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics } from "@shared/schema";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
 
@@ -139,13 +139,20 @@ async function main() {
       if (!email) {
         return res.status(400).json({ message: "Email is required" });
       }
+      // Check if already subscribed
+      const [existing] = await db.select().from(emailSubscribers)
+        .where(eq(emailSubscribers.email, email.toLowerCase()));
+      if (existing) {
+        // Already subscribed - return success without creating duplicate
+        return res.json({ success: true, alreadySubscribed: true });
+      }
       const unsubscribeToken = crypto.randomBytes(32).toString('hex');
       const [subscriber] = await db.insert(emailSubscribers).values({
-        email,
+        email: email.toLowerCase(),
         name,
         unsubscribeToken,
-      }).onConflictDoNothing().returning();
-      res.json({ success: true });
+      }).returning();
+      res.json({ success: true, alreadySubscribed: false });
     } catch (error) {
       console.error("Error subscribing:", error);
       res.status(500).json({ message: "Failed to subscribe" });
@@ -1748,6 +1755,208 @@ async function main() {
       console.error("Error in scheduled email processor:", error);
     }
   }
+
+  // ===== BILLING MANAGEMENT APIs =====
+
+  // Get all billing clients with their projects
+  app.get("/api/admin/billing/clients", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const clients = await db.select().from(billingClients).orderBy(desc(billingClients.createdAt));
+      const projects = await db.select().from(billingProjects).orderBy(desc(billingProjects.createdAt));
+      const attachments = await db.select().from(billingAttachments).orderBy(desc(billingAttachments.createdAt));
+      
+      // Combine data
+      const clientsWithProjects = clients.map(client => ({
+        ...client,
+        projects: projects
+          .filter(p => p.clientId === client.id)
+          .map(project => ({
+            ...project,
+            attachments: attachments.filter(a => a.projectId === project.id)
+          }))
+      }));
+      
+      res.json(clientsWithProjects);
+    } catch (error) {
+      console.error("Error fetching billing clients:", error);
+      res.status(500).json({ message: "Failed to fetch billing clients" });
+    }
+  });
+
+  // Create billing client
+  app.post("/api/admin/billing/clients", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { name, email, notes } = req.body;
+      if (!name || !email) {
+        return res.status(400).json({ message: "Name and email are required" });
+      }
+      const [client] = await db.insert(billingClients).values({
+        name,
+        email: email.toLowerCase(),
+        notes,
+      }).returning();
+      res.json(client);
+    } catch (error) {
+      console.error("Error creating billing client:", error);
+      res.status(500).json({ message: "Failed to create billing client" });
+    }
+  });
+
+  // Update billing client
+  app.put("/api/admin/billing/clients/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name, email, notes } = req.body;
+      const [updated] = await db.update(billingClients)
+        .set({ name, email: email?.toLowerCase(), notes, updatedAt: new Date() })
+        .where(eq(billingClients.id, id))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating billing client:", error);
+      res.status(500).json({ message: "Failed to update billing client" });
+    }
+  });
+
+  // Delete billing client (cascades to projects and attachments)
+  app.delete("/api/admin/billing/clients/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(billingClients).where(eq(billingClients.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting billing client:", error);
+      res.status(500).json({ message: "Failed to delete billing client" });
+    }
+  });
+
+  // Create billing project
+  app.post("/api/admin/billing/projects", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { clientId, projectName, description, stripePaymentLink, amount, hostingType, nextPaymentDue, notes } = req.body;
+      if (!clientId || !projectName) {
+        return res.status(400).json({ message: "Client ID and project name are required" });
+      }
+      const [project] = await db.insert(billingProjects).values({
+        clientId,
+        projectName,
+        description,
+        stripePaymentLink,
+        amount,
+        hostingType,
+        nextPaymentDue: nextPaymentDue ? new Date(nextPaymentDue) : null,
+        notes,
+      }).returning();
+      res.json(project);
+    } catch (error) {
+      console.error("Error creating billing project:", error);
+      res.status(500).json({ message: "Failed to create billing project" });
+    }
+  });
+
+  // Update billing project
+  app.put("/api/admin/billing/projects/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { projectName, description, stripePaymentLink, amount, paymentStatus, projectStatus, hostingType, nextPaymentDue, notes } = req.body;
+      const [updated] = await db.update(billingProjects)
+        .set({ 
+          projectName, 
+          description, 
+          stripePaymentLink, 
+          amount, 
+          paymentStatus, 
+          projectStatus, 
+          hostingType,
+          nextPaymentDue: nextPaymentDue ? new Date(nextPaymentDue) : null,
+          notes,
+          updatedAt: new Date() 
+        })
+        .where(eq(billingProjects.id, id))
+        .returning();
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating billing project:", error);
+      res.status(500).json({ message: "Failed to update billing project" });
+    }
+  });
+
+  // Delete billing project
+  app.delete("/api/admin/billing/projects/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(billingProjects).where(eq(billingProjects.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting billing project:", error);
+      res.status(500).json({ message: "Failed to delete billing project" });
+    }
+  });
+
+  // Add billing attachment (screenshot/file)
+  app.post("/api/admin/billing/attachments", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { projectId, fileName, fileUrl, fileType, description } = req.body;
+      if (!projectId || !fileName || !fileUrl) {
+        return res.status(400).json({ message: "Project ID, file name, and file URL are required" });
+      }
+      const [attachment] = await db.insert(billingAttachments).values({
+        projectId,
+        fileName,
+        fileUrl,
+        fileType,
+        description,
+      }).returning();
+      res.json(attachment);
+    } catch (error) {
+      console.error("Error creating billing attachment:", error);
+      res.status(500).json({ message: "Failed to create billing attachment" });
+    }
+  });
+
+  // Delete billing attachment
+  app.delete("/api/admin/billing/attachments/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(billingAttachments).where(eq(billingAttachments.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting billing attachment:", error);
+      res.status(500).json({ message: "Failed to delete billing attachment" });
+    }
+  });
+
+  // Send Stripe payment link email to client
+  app.post("/api/admin/billing/send-payment-link", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { clientEmail, clientName, projectName, stripePaymentLink, amount } = req.body;
+      if (!clientEmail || !projectName || !stripePaymentLink) {
+        return res.status(400).json({ message: "Client email, project name, and Stripe link are required" });
+      }
+
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+          <h2 style="color: #fff; font-size: 22px; margin-bottom: 20px;">Payment Request</h2>
+          <p style="font-size: 16px; line-height: 1.8; color: #ccc;">Hello ${clientName || 'there'},</p>
+          <p style="font-size: 16px; line-height: 1.8; color: #ccc;">Your payment for <strong style="color: #d4af37;">${projectName}</strong> is ready.</p>
+          ${amount ? `<p style="font-size: 18px; color: #d4af37; font-weight: bold; text-align: center; margin: 20px 0;">Amount: ${amount}</p>` : ''}
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${stripePaymentLink}" style="display: inline-block; padding: 15px 40px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 18px; font-weight: bold;">Pay Now</a>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: #888; text-align: center;">If you have any questions, please reply to this email.</p>
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">Team Aeon - Creating Digital Magic</p>
+        </div>
+      `;
+
+      await sendEmail(clientEmail, `Payment Request: ${projectName}`, htmlBody);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error sending payment link email:", error);
+      res.status(500).json({ message: "Failed to send payment link email" });
+    }
+  });
 
   // Run the scheduler every minute
   setInterval(processScheduledEmails, 60000);

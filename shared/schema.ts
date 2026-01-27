@@ -162,3 +162,50 @@ export const analyticsDailyMetrics = pgTable("analytics_daily_metrics", {
 
 export type AnalyticsDailyMetric = typeof analyticsDailyMetrics.$inferSelect;
 export type InsertAnalyticsDailyMetric = typeof analyticsDailyMetrics.$inferInsert;
+
+// Billing Clients - track clients like Brett
+export const billingClients = pgTable("billing_clients", {
+  id: serial("id").primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type BillingClient = typeof billingClients.$inferSelect;
+export type InsertBillingClient = typeof billingClients.$inferInsert;
+
+// Billing Projects - multiple projects per client
+export const billingProjects = pgTable("billing_projects", {
+  id: serial("id").primaryKey(),
+  clientId: integer("client_id").notNull().references(() => billingClients.id, { onDelete: 'cascade' }),
+  projectName: varchar("project_name", { length: 255 }).notNull(),
+  description: text("description"),
+  stripePaymentLink: varchar("stripe_payment_link", { length: 500 }),
+  amount: varchar("amount", { length: 100 }), // e.g., "$25/month" or "$500 one-time"
+  paymentStatus: varchar("payment_status", { length: 50 }).default("pending"), // pending, paid, overdue
+  projectStatus: varchar("project_status", { length: 50 }).default("active"), // active, completed, on_hold, cancelled
+  hostingType: varchar("hosting_type", { length: 100 }), // e.g., "monthly", "yearly", "one-time"
+  nextPaymentDue: timestamp("next_payment_due"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type BillingProject = typeof billingProjects.$inferSelect;
+export type InsertBillingProject = typeof billingProjects.$inferInsert;
+
+// Billing Attachments - screenshots and files for projects
+export const billingAttachments = pgTable("billing_attachments", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => billingProjects.id, { onDelete: 'cascade' }),
+  fileName: varchar("file_name", { length: 255 }).notNull(),
+  fileUrl: varchar("file_url", { length: 500 }).notNull(),
+  fileType: varchar("file_type", { length: 50 }), // image, pdf, etc.
+  description: text("description"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BillingAttachment = typeof billingAttachments.$inferSelect;
+export type InsertBillingAttachment = typeof billingAttachments.$inferInsert;
