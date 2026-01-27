@@ -1837,17 +1837,17 @@ async function main() {
   // Create billing project
   app.post("/api/admin/billing/projects", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { clientId, projectName, description, stripePaymentLink, amount, hostingType, nextPaymentDue, notes } = req.body;
+      const { clientId, projectName, projectType, description, stripePaymentLink, amount, hostingType, nextPaymentDue, notes } = req.body;
       if (!clientId || !projectName) {
         return res.status(400).json({ message: "Client ID and project name are required" });
       }
       const [project] = await db.insert(billingProjects).values({
         clientId,
         projectName,
-        description,
+        description: projectType ? `[${projectType}] ${description || ''}`.trim() : description,
         stripePaymentLink,
         amount,
-        hostingType,
+        hostingType: hostingType || projectType,
         nextPaymentDue: nextPaymentDue ? new Date(nextPaymentDue) : null,
         notes,
       }).returning();

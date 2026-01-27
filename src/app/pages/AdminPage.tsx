@@ -2162,12 +2162,7 @@ function BillingSection() {
   const [clientForm, setClientForm] = useState({ name: '', email: '', notes: '' });
   const [projectForm, setProjectForm] = useState({ 
     projectName: '', 
-    description: '', 
-    stripePaymentLink: '', 
-    amount: '', 
-    hostingType: 'monthly',
-    nextPaymentDue: '',
-    notes: '' 
+    projectType: 'webapp',
   });
   const [sendingPayment, setSendingPayment] = useState<number | null>(null);
   const [uploadingFor, setUploadingFor] = useState<number | null>(null);
@@ -2272,7 +2267,7 @@ function BillingSection() {
     });
     setShowProjectForm(null);
     setEditingProject(null);
-    setProjectForm({ projectName: '', description: '', stripePaymentLink: '', amount: '', hostingType: 'monthly', nextPaymentDue: '', notes: '' });
+    setProjectForm({ projectName: '', projectType: 'webapp' });
     fetchClients();
   };
 
@@ -2996,7 +2991,7 @@ function BillingSection() {
               {expandedClients.has(client.id) && (
                 <div className="border-t border-primary/20 p-4 space-y-4">
                   <button
-                    onClick={() => { setShowProjectForm(client.id); setEditingProject(null); setProjectForm({ projectName: '', description: '', stripePaymentLink: '', amount: '', hostingType: 'monthly', nextPaymentDue: '', notes: '' }); }}
+                    onClick={() => { setShowProjectForm(client.id); setEditingProject(null); setProjectForm({ projectName: '', projectType: 'webapp' }); }}
                     className="px-3 py-1 text-sm bg-primary/20 text-primary rounded hover:bg-primary/30"
                   >
                     + Add Project
@@ -3005,58 +3000,35 @@ function BillingSection() {
                   {showProjectForm === client.id && (
                     <form onSubmit={e => handleProjectSubmit(e, client.id)} className="bg-background border border-primary/30 rounded p-4 space-y-3">
                       <h4 className="text-primary">{editingProject ? 'Edit Project' : 'New Project'}</h4>
-                      <div className="grid md:grid-cols-2 gap-3">
-                        <input
-                          type="text"
-                          placeholder="Project Name"
-                          value={projectForm.projectName}
-                          onChange={e => setProjectForm(prev => ({ ...prev, projectName: e.target.value }))}
-                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
-                          required
-                        />
-                        <input
-                          type="text"
-                          placeholder="Amount (e.g., $25/month)"
-                          value={projectForm.amount}
-                          onChange={e => setProjectForm(prev => ({ ...prev, amount: e.target.value }))}
-                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
-                        />
-                        <input
-                          type="url"
-                          placeholder="Stripe Payment Link"
-                          value={projectForm.stripePaymentLink}
-                          onChange={e => setProjectForm(prev => ({ ...prev, stripePaymentLink: e.target.value }))}
-                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
-                        />
-                        <select
-                          value={projectForm.hostingType}
-                          onChange={e => setProjectForm(prev => ({ ...prev, hostingType: e.target.value }))}
-                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
-                        >
-                          <option value="monthly">Monthly</option>
-                          <option value="yearly">Yearly</option>
-                          <option value="one-time">One-Time</option>
-                        </select>
-                        <input
-                          type="date"
-                          placeholder="Next Payment Due"
-                          value={projectForm.nextPaymentDue}
-                          onChange={e => setProjectForm(prev => ({ ...prev, nextPaymentDue: e.target.value }))}
-                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
-                        />
-                      </div>
-                      <textarea
-                        placeholder="Description"
-                        value={projectForm.description}
-                        onChange={e => setProjectForm(prev => ({ ...prev, description: e.target.value }))}
-                        className="w-full px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
-                        rows={2}
-                      />
-                      <div className="flex gap-2">
-                        <button type="submit" className="px-3 py-1 bg-primary text-black rounded text-sm">
-                          {editingProject ? 'Update' : 'Create'}
+                      <div className="flex gap-3 items-end">
+                        <div className="flex-1">
+                          <label className="block text-xs text-muted-foreground mb-1">Project Name</label>
+                          <input
+                            type="text"
+                            placeholder="e.g., Business Website"
+                            value={projectForm.projectName}
+                            onChange={e => setProjectForm(prev => ({ ...prev, projectName: e.target.value }))}
+                            className="w-full px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                            required
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-muted-foreground mb-1">Type</label>
+                          <select
+                            value={projectForm.projectType}
+                            onChange={e => setProjectForm(prev => ({ ...prev, projectType: e.target.value }))}
+                            className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                          >
+                            <option value="webapp">Web App</option>
+                            <option value="mobile">Mobile App</option>
+                            <option value="website">Website</option>
+                            <option value="other">Other</option>
+                          </select>
+                        </div>
+                        <button type="submit" className="px-4 py-2 bg-primary text-black rounded text-sm">
+                          {editingProject ? 'Update' : 'Add'}
                         </button>
-                        <button type="button" onClick={() => setShowProjectForm(null)} className="px-3 py-1 border border-primary text-primary rounded text-sm">
+                        <button type="button" onClick={() => setShowProjectForm(null)} className="px-3 py-2 border border-primary text-primary rounded text-sm">
                           Cancel
                         </button>
                       </div>
@@ -3071,8 +3043,22 @@ function BillingSection() {
                         <div key={project.id} className="bg-background border border-primary/30 rounded p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <h4 className="text-white font-medium">{project.projectName}</h4>
-                              <p className="text-muted-foreground text-sm">{project.description}</p>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-white font-medium">{project.projectName}</h4>
+                                {project.hostingType && (
+                                  <span className={`px-2 py-0.5 text-xs rounded ${
+                                    project.hostingType === 'webapp' ? 'bg-blue-500/20 text-blue-400' :
+                                    project.hostingType === 'mobile' ? 'bg-purple-500/20 text-purple-400' :
+                                    project.hostingType === 'website' ? 'bg-green-500/20 text-green-400' :
+                                    'bg-gray-500/20 text-gray-400'
+                                  }`}>
+                                    {project.hostingType === 'webapp' ? 'Web App' : 
+                                     project.hostingType === 'mobile' ? 'Mobile' : 
+                                     project.hostingType === 'website' ? 'Website' : 
+                                     project.hostingType}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex items-center gap-2">
                               <select
@@ -3091,9 +3077,8 @@ function BillingSection() {
                             </div>
                           </div>
 
-                          <div className="grid md:grid-cols-3 gap-2 text-sm mb-3">
+                          <div className="grid md:grid-cols-2 gap-2 text-sm mb-3">
                             {project.amount && <div><span className="text-muted-foreground">Amount:</span> <span className="text-primary">{project.amount}</span></div>}
-                            {project.hostingType && <div><span className="text-muted-foreground">Type:</span> <span className="text-white capitalize">{project.hostingType}</span></div>}
                             {project.nextPaymentDue && formatDate(project.nextPaymentDue, 'MMM d, yyyy') && <div><span className="text-muted-foreground">Next Due:</span> <span className="text-white">{formatDate(project.nextPaymentDue, 'MMM d, yyyy')}</span></div>}
                           </div>
 
@@ -3258,12 +3243,7 @@ function BillingSection() {
                                 setEditingProject(project);
                                 setProjectForm({
                                   projectName: project.projectName,
-                                  description: project.description || '',
-                                  stripePaymentLink: project.stripePaymentLink || '',
-                                  amount: project.amount || '',
-                                  hostingType: project.hostingType || 'monthly',
-                                  nextPaymentDue: formatDate(project.nextPaymentDue, 'yyyy-MM-dd'),
-                                  notes: project.notes || '',
+                                  projectType: project.hostingType || 'webapp',
                                 });
                                 setShowProjectForm(client.id);
                               }}
