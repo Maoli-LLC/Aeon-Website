@@ -2460,7 +2460,7 @@ function BillingSection() {
       const data = await response.json();
       if (data.success && data.paymentLink) {
         setQuickInvoice(prev => ({ ...prev, paymentLink: data.paymentLink }));
-        loadBillingClients();
+        fetchClients();
       } else {
         alert(data.message || 'Failed to generate payment link');
       }
