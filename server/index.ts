@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { db } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments } from "@shared/schema";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
 
@@ -1957,6 +1957,163 @@ async function main() {
     } catch (error) {
       console.error("Error sending payment link email:", error);
       res.status(500).json({ message: "Failed to send payment link email" });
+    }
+  });
+
+  // Import subscribers as billing clients
+  app.post("/api/admin/billing/import-subscribers", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const subscribers = await db.select().from(emailSubscribers);
+      const existingClients = await db.select().from(billingClients);
+      const existingEmails = new Set(existingClients.map(c => c.email.toLowerCase()));
+      
+      let imported = 0;
+      for (const sub of subscribers) {
+        if (!existingEmails.has(sub.email.toLowerCase())) {
+          await db.insert(billingClients).values({
+            email: sub.email,
+            name: sub.name || sub.email.split('@')[0],
+            notes: `Imported from subscribers on ${new Date().toLocaleDateString()}`,
+          });
+          imported++;
+        }
+      }
+      
+      res.json({ success: true, imported, skipped: subscribers.length - imported });
+    } catch (error) {
+      console.error("Error importing subscribers:", error);
+      res.status(500).json({ message: "Failed to import subscribers" });
+    }
+  });
+
+  // Line Items CRUD
+  app.get("/api/admin/billing/projects/:projectId/line-items", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const projectId = parseInt(req.params.projectId);
+      const items = await db.select().from(billingLineItems)
+        .where(eq(billingLineItems.projectId, projectId))
+        .orderBy(billingLineItems.createdAt);
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching line items:", error);
+      res.status(500).json({ message: "Failed to fetch line items" });
+    }
+  });
+
+  app.post("/api/admin/billing/line-items", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { projectId, description, quantity, unitPrice, totalPrice, serviceDate, notes } = req.body;
+      if (!projectId || !description || !unitPrice || !totalPrice) {
+        return res.status(400).json({ message: "Project ID, description, unit price, and total price are required" });
+      }
+      const [item] = await db.insert(billingLineItems).values({
+        projectId,
+        description,
+        quantity: quantity || 1,
+        unitPrice,
+        totalPrice,
+        serviceDate: serviceDate ? new Date(serviceDate) : null,
+        notes,
+      }).returning();
+      res.json(item);
+    } catch (error) {
+      console.error("Error creating line item:", error);
+      res.status(500).json({ message: "Failed to create line item" });
+    }
+  });
+
+  app.delete("/api/admin/billing/line-items/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(billingLineItems).where(eq(billingLineItems.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting line item:", error);
+      res.status(500).json({ message: "Failed to delete line item" });
+    }
+  });
+
+  // Send itemized bill email with attachments
+  app.post("/api/admin/billing/send-itemized-bill", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { clientEmail, clientName, projectName, lineItems, attachments, totalAmount, paymentLink, notes } = req.body;
+      if (!clientEmail || !projectName || !lineItems || lineItems.length === 0) {
+        return res.status(400).json({ message: "Client email, project name, and line items are required" });
+      }
+
+      const lineItemsHtml = lineItems.map((item: any) => `
+        <tr>
+          <td style="padding: 10px; border-bottom: 1px solid #333; color: #ccc;">${item.description}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #333; color: #ccc; text-align: center;">${item.quantity || 1}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #333; color: #ccc; text-align: right;">${item.unitPrice}</td>
+          <td style="padding: 10px; border-bottom: 1px solid #333; color: #d4af37; text-align: right; font-weight: bold;">${item.totalPrice}</td>
+        </tr>
+      `).join('');
+
+      const attachmentsHtml = attachments && attachments.length > 0 ? `
+        <div style="margin-top: 30px;">
+          <h3 style="color: #d4af37; font-size: 18px; margin-bottom: 15px;">Attached Documents</h3>
+          <ul style="list-style: none; padding: 0;">
+            ${attachments.map((att: any) => `
+              <li style="margin-bottom: 10px;">
+                <a href="${att.fileUrl}" style="color: #d4af37; text-decoration: underline;">${att.fileName}</a>
+                ${att.description ? `<span style="color: #888; margin-left: 10px;">- ${att.description}</span>` : ''}
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      ` : '';
+
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 700px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+          <h2 style="color: #fff; font-size: 22px; margin-bottom: 10px;">Itemized Bill</h2>
+          <p style="color: #888; margin-bottom: 20px;">Project: <strong style="color: #d4af37;">${projectName}</strong></p>
+          
+          <p style="font-size: 16px; line-height: 1.8; color: #ccc;">Hello ${clientName || 'there'},</p>
+          <p style="font-size: 16px; line-height: 1.8; color: #ccc;">Please find your itemized bill below:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin: 20px 0; background-color: #222;">
+            <thead>
+              <tr style="background-color: #2a2a2a;">
+                <th style="padding: 12px; text-align: left; color: #d4af37; border-bottom: 2px solid #d4af37;">Description</th>
+                <th style="padding: 12px; text-align: center; color: #d4af37; border-bottom: 2px solid #d4af37;">Qty</th>
+                <th style="padding: 12px; text-align: right; color: #d4af37; border-bottom: 2px solid #d4af37;">Unit Price</th>
+                <th style="padding: 12px; text-align: right; color: #d4af37; border-bottom: 2px solid #d4af37;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${lineItemsHtml}
+            </tbody>
+            <tfoot>
+              <tr style="background-color: #2a2a2a;">
+                <td colspan="3" style="padding: 15px; text-align: right; color: #fff; font-size: 18px; font-weight: bold;">Grand Total:</td>
+                <td style="padding: 15px; text-align: right; color: #d4af37; font-size: 20px; font-weight: bold;">${totalAmount}</td>
+              </tr>
+            </tfoot>
+          </table>
+          
+          ${notes ? `<p style="font-size: 14px; line-height: 1.6; color: #888; background-color: #222; padding: 15px; border-radius: 4px; margin: 20px 0;"><strong>Notes:</strong> ${notes}</p>` : ''}
+          
+          ${attachmentsHtml}
+          
+          ${paymentLink ? `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${paymentLink}" style="display: inline-block; padding: 15px 40px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 18px; font-weight: bold;">Pay Now</a>
+            </div>
+          ` : ''}
+          
+          <p style="font-size: 14px; line-height: 1.6; color: #888; text-align: center;">If you have any questions, please reply to this email.</p>
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">Team Aeon - Creating Digital Magic</p>
+        </div>
+      `;
+
+      await sendEmail(clientEmail, `Itemized Bill: ${projectName}`, htmlBody);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error sending itemized bill:", error);
+      res.status(500).json({ message: "Failed to send itemized bill" });
     }
   });
 

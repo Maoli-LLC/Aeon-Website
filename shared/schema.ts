@@ -209,3 +209,19 @@ export const billingAttachments = pgTable("billing_attachments", {
 
 export type BillingAttachment = typeof billingAttachments.$inferSelect;
 export type InsertBillingAttachment = typeof billingAttachments.$inferInsert;
+
+// Billing Line Items - itemized charges for projects
+export const billingLineItems = pgTable("billing_line_items", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => billingProjects.id, { onDelete: 'cascade' }),
+  description: varchar("description", { length: 500 }).notNull(),
+  quantity: integer("quantity").default(1),
+  unitPrice: varchar("unit_price", { length: 50 }).notNull(), // e.g., "$25.00"
+  totalPrice: varchar("total_price", { length: 50 }).notNull(), // e.g., "$75.00"
+  serviceDate: timestamp("service_date"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type BillingLineItem = typeof billingLineItems.$inferSelect;
+export type InsertBillingLineItem = typeof billingLineItems.$inferInsert;

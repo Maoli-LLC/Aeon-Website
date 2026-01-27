@@ -2171,6 +2171,11 @@ function BillingSection() {
   });
   const [sendingPayment, setSendingPayment] = useState<number | null>(null);
   const [uploadingFor, setUploadingFor] = useState<number | null>(null);
+  const [importingSubscribers, setImportingSubscribers] = useState(false);
+  const [lineItems, setLineItems] = useState<Record<number, any[]>>({});
+  const [showLineItemForm, setShowLineItemForm] = useState<number | null>(null);
+  const [lineItemForm, setLineItemForm] = useState({ description: '', quantity: 1, unitPrice: '', notes: '' });
+  const [sendingItemizedBill, setSendingItemizedBill] = useState<number | null>(null);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: async (response) => {
       if (uploadingFor) {
@@ -2309,18 +2314,110 @@ function BillingSection() {
     }
   };
 
+  const importSubscribers = async () => {
+    setImportingSubscribers(true);
+    try {
+      const res = await fetch('/api/admin/billing/import-subscribers', { method: 'POST' });
+      const data = await res.json();
+      alert(`Imported ${data.imported} new clients. ${data.skipped} already existed.`);
+      fetchClients();
+    } catch {
+      alert('Failed to import subscribers');
+    }
+    setImportingSubscribers(false);
+  };
+
+  const fetchLineItems = async (projectId: number) => {
+    try {
+      const res = await fetch(`/api/admin/billing/projects/${projectId}/line-items`);
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setLineItems(prev => ({ ...prev, [projectId]: data }));
+      }
+    } catch (error) {
+      console.error("Error fetching line items:", error);
+    }
+  };
+
+  const addLineItem = async (e: React.FormEvent, projectId: number) => {
+    e.preventDefault();
+    const total = (lineItemForm.quantity * parseFloat(lineItemForm.unitPrice.replace(/[^0-9.]/g, '') || '0')).toFixed(2);
+    await fetch('/api/admin/billing/line-items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId,
+        description: lineItemForm.description,
+        quantity: lineItemForm.quantity,
+        unitPrice: lineItemForm.unitPrice.startsWith('$') ? lineItemForm.unitPrice : `$${lineItemForm.unitPrice}`,
+        totalPrice: `$${total}`,
+        notes: lineItemForm.notes,
+      }),
+    });
+    setLineItemForm({ description: '', quantity: 1, unitPrice: '', notes: '' });
+    setShowLineItemForm(null);
+    fetchLineItems(projectId);
+  };
+
+  const deleteLineItem = async (itemId: number, projectId: number) => {
+    await fetch(`/api/admin/billing/line-items/${itemId}`, { method: 'DELETE' });
+    fetchLineItems(projectId);
+  };
+
+  const sendItemizedBill = async (client: BillingClient, project: BillingProject & { attachments: BillingAttachment[] }) => {
+    const projectLineItems = lineItems[project.id] || [];
+    if (projectLineItems.length === 0) {
+      alert('Add line items before sending an itemized bill');
+      return;
+    }
+    setSendingItemizedBill(project.id);
+    try {
+      const total = projectLineItems.reduce((sum: number, item: any) => {
+        return sum + parseFloat(item.totalPrice.replace(/[^0-9.]/g, '') || '0');
+      }, 0).toFixed(2);
+      
+      await fetch('/api/admin/billing/send-itemized-bill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientEmail: client.email,
+          clientName: client.name,
+          projectName: project.projectName,
+          lineItems: projectLineItems,
+          attachments: project.attachments,
+          totalAmount: `$${total}`,
+          paymentLink: project.stripePaymentLink,
+          notes: project.notes,
+        }),
+      });
+      alert('Itemized bill sent successfully!');
+    } catch {
+      alert('Failed to send itemized bill');
+    }
+    setSendingItemizedBill(null);
+  };
+
   if (loading) return <p className="text-white">Loading billing data...</p>;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center flex-wrap gap-3">
         <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Client Billing</h2>
-        <button
-          onClick={() => { setShowClientForm(true); setEditingClient(null); setClientForm({ name: '', email: '', notes: '' }); }}
-          className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
-        >
-          + Add Client
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={importSubscribers}
+            disabled={importingSubscribers}
+            className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 disabled:opacity-50"
+          >
+            {importingSubscribers ? 'Importing...' : 'Import from Subscribers'}
+          </button>
+          <button
+            onClick={() => { setShowClientForm(true); setEditingClient(null); setClientForm({ name: '', email: '', notes: '' }); }}
+            className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
+          >
+            + Add Client
+          </button>
+        </div>
       </div>
 
       {showClientForm && (
@@ -2531,6 +2628,109 @@ function BillingSection() {
                             </div>
                           )}
 
+                          {/* Line Items Section */}
+                          <div className="mb-4 border-t border-primary/20 pt-3 mt-3">
+                            <div className="flex items-center justify-between mb-2">
+                              <p className="text-primary text-sm font-medium">Line Items</p>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => fetchLineItems(project.id)}
+                                  className="px-2 py-1 text-xs border border-primary/50 text-primary rounded hover:bg-primary/10"
+                                >
+                                  Load Items
+                                </button>
+                                <button
+                                  onClick={() => { setShowLineItemForm(project.id); setLineItemForm({ description: '', quantity: 1, unitPrice: '', notes: '' }); }}
+                                  className="px-2 py-1 text-xs bg-primary/20 text-primary rounded hover:bg-primary/30"
+                                >
+                                  + Add Item
+                                </button>
+                              </div>
+                            </div>
+
+                            {showLineItemForm === project.id && (
+                              <form onSubmit={e => addLineItem(e, project.id)} className="bg-card border border-primary/30 rounded p-3 mb-3 space-y-2">
+                                <div className="grid grid-cols-3 gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Description"
+                                    value={lineItemForm.description}
+                                    onChange={e => setLineItemForm(prev => ({ ...prev, description: e.target.value }))}
+                                    className="col-span-2 px-2 py-1 bg-background border border-primary/30 rounded text-white text-sm"
+                                    required
+                                  />
+                                  <input
+                                    type="number"
+                                    placeholder="Qty"
+                                    value={lineItemForm.quantity}
+                                    onChange={e => setLineItemForm(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                                    className="px-2 py-1 bg-background border border-primary/30 rounded text-white text-sm"
+                                    min="1"
+                                  />
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Unit Price (e.g., $25)"
+                                    value={lineItemForm.unitPrice}
+                                    onChange={e => setLineItemForm(prev => ({ ...prev, unitPrice: e.target.value }))}
+                                    className="px-2 py-1 bg-background border border-primary/30 rounded text-white text-sm"
+                                    required
+                                  />
+                                  <input
+                                    type="text"
+                                    placeholder="Notes (optional)"
+                                    value={lineItemForm.notes}
+                                    onChange={e => setLineItemForm(prev => ({ ...prev, notes: e.target.value }))}
+                                    className="px-2 py-1 bg-background border border-primary/30 rounded text-white text-sm"
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <button type="submit" className="px-3 py-1 text-xs bg-primary text-black rounded">Add</button>
+                                  <button type="button" onClick={() => setShowLineItemForm(null)} className="px-3 py-1 text-xs border border-primary text-primary rounded">Cancel</button>
+                                </div>
+                              </form>
+                            )}
+
+                            {lineItems[project.id] && lineItems[project.id].length > 0 && (
+                              <div className="bg-card/50 rounded overflow-hidden">
+                                <table className="w-full text-sm">
+                                  <thead className="bg-primary/10">
+                                    <tr>
+                                      <th className="px-3 py-2 text-left text-primary">Description</th>
+                                      <th className="px-3 py-2 text-center text-primary">Qty</th>
+                                      <th className="px-3 py-2 text-right text-primary">Unit</th>
+                                      <th className="px-3 py-2 text-right text-primary">Total</th>
+                                      <th className="px-3 py-2"></th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {lineItems[project.id].map((item: any) => (
+                                      <tr key={item.id} className="border-t border-primary/10">
+                                        <td className="px-3 py-2 text-white">{item.description}</td>
+                                        <td className="px-3 py-2 text-center text-muted-foreground">{item.quantity}</td>
+                                        <td className="px-3 py-2 text-right text-muted-foreground">{item.unitPrice}</td>
+                                        <td className="px-3 py-2 text-right text-primary font-medium">{item.totalPrice}</td>
+                                        <td className="px-3 py-2 text-right">
+                                          <button onClick={() => deleteLineItem(item.id, project.id)} className="text-red-400 hover:text-red-300 text-xs">×</button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot className="bg-primary/10">
+                                    <tr>
+                                      <td colSpan={3} className="px-3 py-2 text-right text-white font-medium">Grand Total:</td>
+                                      <td className="px-3 py-2 text-right text-primary font-bold">
+                                        ${lineItems[project.id].reduce((sum: number, item: any) => sum + parseFloat(item.totalPrice.replace(/[^0-9.]/g, '') || '0'), 0).toFixed(2)}
+                                      </td>
+                                      <td></td>
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="flex flex-wrap gap-2">
                             <button
                               onClick={() => sendPaymentLink(client, project)}
@@ -2538,6 +2738,13 @@ function BillingSection() {
                               className="px-3 py-1 text-sm bg-primary text-black rounded hover:bg-primary/90 disabled:opacity-50"
                             >
                               {sendingPayment === project.id ? 'Sending...' : 'Send Payment Link'}
+                            </button>
+                            <button
+                              onClick={() => sendItemizedBill(client, project)}
+                              disabled={sendingItemizedBill === project.id || !lineItems[project.id] || lineItems[project.id].length === 0}
+                              className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-500 disabled:opacity-50"
+                            >
+                              {sendingItemizedBill === project.id ? 'Sending...' : 'Send Itemized Bill'}
                             </button>
                             <label className="px-3 py-1 text-sm border border-primary text-primary rounded cursor-pointer hover:bg-primary/10">
                               {isUploading && uploadingFor === project.id ? 'Uploading...' : '+ Screenshot'}
