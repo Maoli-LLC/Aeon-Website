@@ -2155,6 +2155,8 @@ async function main() {
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS billing_projects (
           id SERIAL PRIMARY KEY,
           client_id INTEGER NOT NULL REFERENCES billing_clients(id) ON DELETE CASCADE,
@@ -2170,25 +2172,32 @@ async function main() {
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS billing_attachments (
           id SERIAL PRIMARY KEY,
           project_id INTEGER NOT NULL REFERENCES billing_projects(id) ON DELETE CASCADE,
           file_name VARCHAR(255) NOT NULL,
-          file_url TEXT NOT NULL,
-          file_type VARCHAR(100),
+          file_url VARCHAR(500) NOT NULL,
+          file_type VARCHAR(50),
+          description TEXT,
           created_at TIMESTAMP DEFAULT NOW()
         );
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS billing_line_items (
           id SERIAL PRIMARY KEY,
           project_id INTEGER NOT NULL REFERENCES billing_projects(id) ON DELETE CASCADE,
           description VARCHAR(500) NOT NULL,
           quantity INTEGER DEFAULT 1,
-          unit_price NUMERIC(10,2) NOT NULL,
-          total NUMERIC(10,2) NOT NULL,
+          unit_price VARCHAR(50) NOT NULL,
+          total_price VARCHAR(50) NOT NULL,
+          service_date TIMESTAMP,
+          notes TEXT,
           created_at TIMESTAMP DEFAULT NOW()
         );
       `);
-      console.log('Billing tables initialized');
+      console.log('Billing tables created successfully');
     } catch (err) {
       console.log('Billing tables error:', (err as Error).message);
     }
