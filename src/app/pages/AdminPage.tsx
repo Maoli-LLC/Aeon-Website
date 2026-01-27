@@ -2179,6 +2179,8 @@ function BillingSection() {
   
   // Quick Invoice State
   const [showQuickInvoice, setShowQuickInvoice] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<number | 'new'>('new');
+  const [selectedProjectId, setSelectedProjectId] = useState<number | 'new'>('new');
   const [quickInvoice, setQuickInvoice] = useState({
     clientEmail: '',
     clientName: '',
@@ -2188,7 +2190,14 @@ function BillingSection() {
     paymentLink: '',
     description: '',
   });
+  const [invoiceScreenshots, setInvoiceScreenshots] = useState<File[]>([]);
+  const [uploadingInvoiceScreenshots, setUploadingInvoiceScreenshots] = useState(false);
   const [sendingQuickInvoice, setSendingQuickInvoice] = useState(false);
+
+  // Get projects for selected client
+  const selectedClientProjects = selectedClientId !== 'new' 
+    ? clients.find(c => c.id === selectedClientId)?.projects || []
+    : [];
   const { uploadFile, isUploading } = useUpload({
     onSuccess: async (response) => {
       if (uploadingFor) {
@@ -2412,22 +2421,78 @@ function BillingSection() {
 
   // Send Quick Invoice - creates client/project and sends email all at once
   const sendQuickInvoice = async () => {
-    if (!quickInvoice.clientEmail || !quickInvoice.projectName || !quickInvoice.amount) {
-      alert('Please fill in email, project name, and amount');
+    // Validate based on whether existing or new client/project
+    const clientEmail = selectedClientId !== 'new' 
+      ? clients.find(c => c.id === selectedClientId)?.email 
+      : quickInvoice.clientEmail;
+    const clientName = selectedClientId !== 'new'
+      ? clients.find(c => c.id === selectedClientId)?.name
+      : quickInvoice.clientName;
+    
+    if (!clientEmail) {
+      alert('Please select a client or enter a new client email');
       return;
     }
+    
+    // If using existing project, get its details
+    let projectName = quickInvoice.projectName;
+    let projectId: number | undefined;
+    if (selectedClientId !== 'new' && selectedProjectId !== 'new') {
+      const existingProject = selectedClientProjects.find(p => p.id === selectedProjectId);
+      if (existingProject) {
+        projectName = existingProject.projectName;
+        projectId = existingProject.id;
+      }
+    }
+    
+    if (!projectName || !quickInvoice.amount) {
+      alert('Please fill in project name and amount');
+      return;
+    }
+    
     setSendingQuickInvoice(true);
     try {
+      // First upload screenshots if any
+      let screenshotUrls: string[] = [];
+      if (invoiceScreenshots.length > 0) {
+        setUploadingInvoiceScreenshots(true);
+        for (const file of invoiceScreenshots) {
+          const urlRes = await fetch('/api/uploads/request-url', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+          });
+          const { uploadURL, objectPath } = await urlRes.json();
+          await fetch(uploadURL, { method: 'PUT', body: file });
+          screenshotUrls.push(objectPath);
+        }
+        setUploadingInvoiceScreenshots(false);
+      }
+      
       const res = await fetch('/api/admin/billing/quick-invoice', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(quickInvoice),
+        body: JSON.stringify({
+          clientId: selectedClientId !== 'new' ? selectedClientId : undefined,
+          clientEmail,
+          clientName,
+          projectId,
+          projectName,
+          amount: quickInvoice.amount,
+          dueDate: quickInvoice.dueDate,
+          paymentLink: quickInvoice.paymentLink,
+          description: quickInvoice.description,
+          screenshotUrls,
+        }),
       });
       
       if (res.ok) {
         alert('Invoice sent successfully!');
         setShowQuickInvoice(false);
+        setSelectedClientId('new');
+        setSelectedProjectId('new');
         setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentLink: '', description: '' });
+        setInvoiceScreenshots([]);
         fetchClients();
       } else {
         const err = await res.text();
@@ -2491,41 +2556,110 @@ function BillingSection() {
             <h3 className="text-xl text-green-400 font-semibold">Quick Invoice</h3>
             <button onClick={() => setShowQuickInvoice(false)} className="text-muted-foreground hover:text-white text-2xl">&times;</button>
           </div>
-          <p className="text-muted-foreground text-sm">Fill in the details below and hit send. Everything gets saved and emailed in one click.</p>
+          <p className="text-muted-foreground text-sm">Select a client or add new, choose a project, add screenshots, and hit send.</p>
           
+          {/* Client Selection */}
           <div className="grid md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">Client Email *</label>
-              <input
-                type="email"
-                placeholder="client@example.com"
-                value={quickInvoice.clientEmail}
-                onChange={e => setQuickInvoice(prev => ({ ...prev, clientEmail: e.target.value }))}
-                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
-                required
-              />
+            <div className="md:col-span-2">
+              <label className="block text-sm text-muted-foreground mb-1">Select Client *</label>
+              <select
+                value={selectedClientId}
+                onChange={e => {
+                  const val = e.target.value === 'new' ? 'new' : parseInt(e.target.value);
+                  setSelectedClientId(val);
+                  setSelectedProjectId('new');
+                  if (val !== 'new') {
+                    const client = clients.find(c => c.id === val);
+                    if (client) {
+                      setQuickInvoice(prev => ({ ...prev, clientEmail: client.email, clientName: client.name }));
+                    }
+                  } else {
+                    setQuickInvoice(prev => ({ ...prev, clientEmail: '', clientName: '' }));
+                  }
+                }}
+                className="w-full px-4 py-3 bg-background border border-primary/30 rounded text-white text-lg"
+              >
+                <option value="new">+ Add New Client</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.email})</option>
+                ))}
+              </select>
             </div>
+            
+            {/* New client fields */}
+            {selectedClientId === 'new' && (
+              <>
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">Client Email *</label>
+                  <input
+                    type="email"
+                    placeholder="client@example.com"
+                    value={quickInvoice.clientEmail}
+                    onChange={e => setQuickInvoice(prev => ({ ...prev, clientEmail: e.target.value }))}
+                    className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">Client Name</label>
+                  <input
+                    type="text"
+                    placeholder="John Doe"
+                    value={quickInvoice.clientName}
+                    onChange={e => setQuickInvoice(prev => ({ ...prev, clientName: e.target.value }))}
+                    className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Project Selection (only show if existing client selected) */}
+          {selectedClientId !== 'new' && selectedClientProjects.length > 0 && (
             <div>
-              <label className="block text-sm text-muted-foreground mb-1">Client Name (optional)</label>
-              <input
-                type="text"
-                placeholder="John Doe"
-                value={quickInvoice.clientName}
-                onChange={e => setQuickInvoice(prev => ({ ...prev, clientName: e.target.value }))}
-                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
-              />
+              <label className="block text-sm text-muted-foreground mb-1">Select Project</label>
+              <select
+                value={selectedProjectId}
+                onChange={e => {
+                  const val = e.target.value === 'new' ? 'new' : parseInt(e.target.value);
+                  setSelectedProjectId(val);
+                  if (val !== 'new') {
+                    const proj = selectedClientProjects.find(p => p.id === val);
+                    if (proj) {
+                      setQuickInvoice(prev => ({ 
+                        ...prev, 
+                        projectName: proj.projectName,
+                        amount: proj.amount || prev.amount,
+                        paymentLink: proj.stripePaymentLink || prev.paymentLink,
+                      }));
+                    }
+                  }
+                }}
+                className="w-full px-4 py-3 bg-background border border-primary/30 rounded text-white"
+              >
+                <option value="new">+ Create New Project</option>
+                {selectedClientProjects.map(p => (
+                  <option key={p.id} value={p.id}>{p.projectName} {p.amount ? `(${p.amount})` : ''}</option>
+                ))}
+              </select>
             </div>
-            <div>
-              <label className="block text-sm text-muted-foreground mb-1">Project Name *</label>
-              <input
-                type="text"
-                placeholder="Website Design"
-                value={quickInvoice.projectName}
-                onChange={e => setQuickInvoice(prev => ({ ...prev, projectName: e.target.value }))}
-                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
-                required
-              />
-            </div>
+          )}
+
+          {/* Project Details */}
+          <div className="grid md:grid-cols-2 gap-4">
+            {(selectedClientId === 'new' || selectedProjectId === 'new') && (
+              <div>
+                <label className="block text-sm text-muted-foreground mb-1">Project Name *</label>
+                <input
+                  type="text"
+                  placeholder="Website Design"
+                  value={quickInvoice.projectName}
+                  onChange={e => setQuickInvoice(prev => ({ ...prev, projectName: e.target.value }))}
+                  className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                  required
+                />
+              </div>
+            )}
             <div>
               <label className="block text-sm text-muted-foreground mb-1">Amount *</label>
               <input
@@ -2543,7 +2677,7 @@ function BillingSection() {
                 type="date"
                 value={quickInvoice.dueDate}
                 onChange={e => setQuickInvoice(prev => ({ ...prev, dueDate: e.target.value }))}
-                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white [color-scheme:dark]"
               />
             </div>
             <div>
@@ -2556,6 +2690,36 @@ function BillingSection() {
                 className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
               />
             </div>
+          </div>
+
+          {/* Screenshots */}
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Attach Screenshots</label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={e => {
+                const files = Array.from(e.target.files || []);
+                setInvoiceScreenshots(prev => [...prev, ...files]);
+              }}
+              className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white file:mr-4 file:py-1 file:px-3 file:rounded file:border-0 file:bg-primary file:text-black"
+            />
+            {invoiceScreenshots.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {invoiceScreenshots.map((file, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-background px-3 py-1 rounded border border-primary/20">
+                    <span className="text-sm text-white">{file.name}</span>
+                    <button
+                      onClick={() => setInvoiceScreenshots(prev => prev.filter((_, i) => i !== idx))}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
           <div>
@@ -2572,13 +2736,13 @@ function BillingSection() {
           <div className="flex gap-3 pt-4">
             <button
               onClick={sendQuickInvoice}
-              disabled={sendingQuickInvoice}
+              disabled={sendingQuickInvoice || uploadingInvoiceScreenshots}
               className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50 flex-1"
             >
-              {sendingQuickInvoice ? 'Sending...' : 'Send Invoice Now'}
+              {uploadingInvoiceScreenshots ? 'Uploading Screenshots...' : sendingQuickInvoice ? 'Sending...' : 'Send Invoice Now'}
             </button>
             <button
-              onClick={() => setShowQuickInvoice(false)}
+              onClick={() => { setShowQuickInvoice(false); setInvoiceScreenshots([]); }}
               className="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary/10"
             >
               Cancel

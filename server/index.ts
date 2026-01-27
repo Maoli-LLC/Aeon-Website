@@ -2124,46 +2124,95 @@ async function main() {
   // Quick Invoice - creates client/project and sends email all in one go
   app.post("/api/admin/billing/quick-invoice", isAuthenticated, isOwner, async (req: any, res) => {
     try {
-      const { clientEmail, clientName, projectName, amount, dueDate, paymentLink, description } = req.body;
+      const { clientId: existingClientId, clientEmail, clientName, projectId: existingProjectId, projectName, amount, dueDate, paymentLink, description, screenshotUrls } = req.body;
       
-      if (!clientEmail || !projectName || !amount) {
-        return res.status(400).json({ message: "Email, project name, and amount are required" });
+      if (!clientEmail || !amount) {
+        return res.status(400).json({ message: "Email and amount are required" });
       }
 
-      // Find or create client
-      let client = await db.select().from(billingClients).where(eq(billingClients.email, clientEmail)).limit(1);
+      // Use existing client or create new one
       let clientId: number;
+      if (existingClientId) {
+        clientId = existingClientId;
+      } else {
+        // Find by email or create new
+        let client = await db.select().from(billingClients).where(eq(billingClients.email, clientEmail)).limit(1);
+        if (client.length === 0) {
+          const newClient = await db.insert(billingClients).values({
+            name: clientName || clientEmail.split('@')[0],
+            email: clientEmail,
+            notes: '',
+          }).returning();
+          clientId = newClient[0].id;
+        } else {
+          clientId = client[0].id;
+        }
+      }
+
+      // Use existing project or create new one
+      let projectId: number;
+      let finalProjectName = projectName;
       
-      if (client.length === 0) {
-        const newClient = await db.insert(billingClients).values({
-          name: clientName || clientEmail.split('@')[0],
-          email: clientEmail,
+      if (existingProjectId) {
+        projectId = existingProjectId;
+        // Update project with new amount/payment link if provided
+        await db.update(billingProjects).set({
+          amount: amount,
+          stripePaymentLink: paymentLink || undefined,
+          nextPaymentDue: dueDate ? new Date(dueDate) : undefined,
+        }).where(eq(billingProjects.id, existingProjectId));
+        
+        // Get project name for email
+        const proj = await db.select().from(billingProjects).where(eq(billingProjects.id, existingProjectId)).limit(1);
+        if (proj.length > 0) finalProjectName = proj[0].projectName;
+      } else {
+        // Create new project
+        if (!projectName) {
+          return res.status(400).json({ message: "Project name is required for new projects" });
+        }
+        const newProject = await db.insert(billingProjects).values({
+          clientId,
+          projectName,
+          description: description || '',
+          stripePaymentLink: paymentLink || '',
+          amount: amount,
+          hostingType: 'one-time',
+          nextPaymentDue: dueDate ? new Date(dueDate) : null,
+          paymentStatus: 'pending',
           notes: '',
         }).returning();
-        clientId = newClient[0].id;
-      } else {
-        clientId = client[0].id;
+        projectId = newProject[0].id;
       }
 
-      // Create the project
-      const newProject = await db.insert(billingProjects).values({
-        clientId,
-        projectName,
-        description: description || '',
-        stripePaymentLink: paymentLink || '',
-        amount: amount,
-        hostingType: 'one-time',
-        nextPaymentDue: dueDate ? new Date(dueDate) : null,
-        paymentStatus: 'pending',
-        notes: '',
-      }).returning();
-      
-      const projectId = newProject[0].id;
+      // Save screenshot attachments
+      if (screenshotUrls && screenshotUrls.length > 0) {
+        for (const url of screenshotUrls) {
+          await db.insert(billingAttachments).values({
+            projectId,
+            fileName: url.split('/').pop() || 'screenshot',
+            fileUrl: url,
+            fileType: 'image',
+            description: 'Invoice attachment',
+          });
+        }
+      }
 
       // Format due date
       const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString('en-US', { 
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
       }) : '';
+      
+      // Build screenshots HTML
+      const screenshotsHtml = screenshotUrls && screenshotUrls.length > 0 ? `
+        <div style="margin: 25px 0;">
+          <p style="color: #888; font-size: 14px; margin-bottom: 10px;">Attached Screenshots:</p>
+          ${screenshotUrls.map((url: string) => `
+            <div style="margin-bottom: 15px;">
+              <img src="${url}" alt="Project screenshot" style="max-width: 100%; border-radius: 8px; border: 1px solid #333;">
+            </div>
+          `).join('')}
+        </div>
+      ` : '';
 
       // Send the invoice email
       const htmlBody = `
@@ -2172,7 +2221,7 @@ async function main() {
           
           <div style="background-color: #222; border: 1px solid #d4af37; border-radius: 8px; padding: 25px; margin-bottom: 25px;">
             <h2 style="color: #fff; font-size: 22px; margin: 0 0 15px 0;">Invoice</h2>
-            <p style="color: #888; margin: 0 0 10px 0;">Project: <strong style="color: #d4af37;">${projectName}</strong></p>
+            <p style="color: #888; margin: 0 0 10px 0;">Project: <strong style="color: #d4af37;">${finalProjectName}</strong></p>
             
             <div style="background-color: #1a1a1a; padding: 20px; border-radius: 4px; margin: 20px 0;">
               <p style="color: #888; margin: 0 0 5px 0; font-size: 14px;">Amount Due:</p>
@@ -2193,6 +2242,8 @@ async function main() {
             ` : ''}
           </div>
           
+          ${screenshotsHtml}
+          
           ${paymentLink ? `
             <div style="text-align: center; margin: 30px 0;">
               <a href="${paymentLink}" style="display: inline-block; padding: 18px 50px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 18px; font-weight: bold;">Pay Now</a>
@@ -2208,7 +2259,7 @@ async function main() {
         </div>
       `;
 
-      await sendEmail(clientEmail, `Invoice: ${projectName} - ${amount}`, htmlBody);
+      await sendEmail(clientEmail, `Invoice: ${finalProjectName} - ${amount}`, htmlBody);
       
       res.json({ success: true, projectId, clientId });
     } catch (error) {
