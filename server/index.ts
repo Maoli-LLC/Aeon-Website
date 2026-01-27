@@ -2163,7 +2163,7 @@ async function main() {
   // Generate Stripe Payment Link for invoice
   app.post("/api/admin/billing/generate-payment-link", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { projectId, projectName, amount, clientEmail, clientName } = req.body;
+      const { projectId, projectName, amount, paymentType, clientEmail, clientName } = req.body;
       
       if (!projectName || !amount) {
         return res.status(400).json({ message: "Project name and amount are required" });
@@ -2177,6 +2177,7 @@ async function main() {
         return res.status(400).json({ message: "Invalid amount" });
       }
 
+      const isMonthly = paymentType === 'monthly';
       const stripe = await getUncachableStripeClient();
 
       // Note: We don't deactivate old payment links since they might still be paid
@@ -2185,22 +2186,29 @@ async function main() {
       // Create a product for this invoice with unique name
       const timestamp = Date.now();
       const product = await stripe.products.create({
-        name: `${projectName} - Invoice ${timestamp}`,
-        description: `Invoice for ${projectName}`,
+        name: `${projectName}${isMonthly ? ' (Monthly)' : ''} - Invoice ${timestamp}`,
+        description: `${isMonthly ? 'Monthly subscription for' : 'Invoice for'} ${projectName}`,
         metadata: {
           projectId: projectId ? String(projectId) : '',
           clientEmail: clientEmail || '',
           clientName: clientName || '',
           invoiceTimestamp: String(timestamp),
+          paymentType: paymentType || 'one_time',
         }
       });
 
-      // Create a price for the product
-      const price = await stripe.prices.create({
+      // Create a price for the product (recurring for monthly subscriptions)
+      const priceParams: any = {
         product: product.id,
         unit_amount: amountCents,
         currency: 'usd',
-      });
+      };
+      
+      if (isMonthly) {
+        priceParams.recurring = { interval: 'month' };
+      }
+      
+      const price = await stripe.prices.create(priceParams);
 
       // Create a payment link
       const paymentLink = await stripe.paymentLinks.create({

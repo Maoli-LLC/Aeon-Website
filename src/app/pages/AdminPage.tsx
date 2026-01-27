@@ -2182,6 +2182,7 @@ function BillingSection() {
     projectName: '',
     amount: '',
     dueDate: '',
+    paymentType: 'one_time' as 'one_time' | 'monthly',
     paymentLink: '',
     description: '',
   });
@@ -2452,6 +2453,7 @@ function BillingSection() {
           projectId,
           projectName,
           amount: quickInvoice.amount,
+          paymentType: quickInvoice.paymentType,
           clientEmail,
           clientName,
         }),
@@ -2544,7 +2546,7 @@ function BillingSection() {
         setShowQuickInvoice(false);
         setSelectedClientId('new');
         setSelectedProjectId('new');
-        setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentLink: '', description: '' });
+        setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentType: 'one_time', paymentLink: '', description: '' });
         setInvoiceScreenshots([]);
         fetchClients();
       } else {
@@ -2725,6 +2727,17 @@ function BillingSection() {
                 className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Payment Type</label>
+              <select
+                value={quickInvoice.paymentType}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, paymentType: e.target.value as 'one_time' | 'monthly' }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              >
+                <option value="one_time">One-Time Payment</option>
+                <option value="monthly">Monthly Subscription</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm text-muted-foreground mb-1">Due Date</label>
