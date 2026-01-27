@@ -9,6 +9,9 @@ import { db, pool } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
+import { getUncachableStripeClient, getStripeSync } from "./stripeClient";
+import { WebhookHandlers } from "./webhookHandlers";
+import { runMigrations } from "stripe-replit-sync";
 
 // Multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -23,6 +26,42 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Stripe webhook route - MUST be before express.json()
+app.post(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' }),
+  async (req, res) => {
+    const signature = req.headers['stripe-signature'];
+
+    if (!signature) {
+      return res.status(400).json({ error: 'Missing stripe-signature' });
+    }
+
+    try {
+      const sig = Array.isArray(signature) ? signature[0] : signature;
+
+      if (!Buffer.isBuffer(req.body)) {
+        console.error('STRIPE WEBHOOK ERROR: req.body is not a Buffer');
+        return res.status(500).json({ error: 'Webhook processing error' });
+      }
+
+      const event = await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object as any;
+        if (session.payment_link) {
+          await WebhookHandlers.handlePaymentSuccess(session.payment_link);
+        }
+      }
+
+      res.status(200).json({ received: true });
+    } catch (error: any) {
+      console.error('Webhook error:', error.message);
+      res.status(400).json({ error: 'Webhook processing error' });
+    }
+  }
+);
 
 app.use(express.json());
 
@@ -2118,6 +2157,88 @@ async function main() {
     } catch (error) {
       console.error("Error sending itemized bill:", error);
       res.status(500).json({ message: "Failed to send itemized bill" });
+    }
+  });
+
+  // Generate Stripe Payment Link for invoice
+  app.post("/api/admin/billing/generate-payment-link", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { projectId, projectName, amount, clientEmail, clientName } = req.body;
+      
+      if (!projectName || !amount) {
+        return res.status(400).json({ message: "Project name and amount are required" });
+      }
+
+      // Parse amount to cents (remove $ and convert to cents)
+      const amountStr = String(amount).replace(/[$,]/g, '');
+      const amountCents = Math.round(parseFloat(amountStr) * 100);
+      
+      if (isNaN(amountCents) || amountCents <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+      }
+
+      const stripe = await getUncachableStripeClient();
+
+      // Note: We don't deactivate old payment links since they might still be paid
+      // We just update the project with the new link info
+
+      // Create a product for this invoice with unique name
+      const timestamp = Date.now();
+      const product = await stripe.products.create({
+        name: `${projectName} - Invoice ${timestamp}`,
+        description: `Invoice for ${projectName}`,
+        metadata: {
+          projectId: projectId ? String(projectId) : '',
+          clientEmail: clientEmail || '',
+          clientName: clientName || '',
+          invoiceTimestamp: String(timestamp),
+        }
+      });
+
+      // Create a price for the product
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: amountCents,
+        currency: 'usd',
+      });
+
+      // Create a payment link
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [{ price: price.id, quantity: 1 }],
+        metadata: {
+          projectId: projectId ? String(projectId) : '',
+          clientEmail: clientEmail || '',
+        },
+        after_completion: {
+          type: 'redirect',
+          redirect: {
+            url: 'https://www.iamsahlien.com/?payment=success',
+          },
+        },
+      });
+
+      // If projectId provided, update the project with Stripe info
+      if (projectId) {
+        await db.update(billingProjects)
+          .set({
+            stripePaymentLink: paymentLink.url,
+            stripePaymentLinkId: paymentLink.id,
+            stripeProductId: product.id,
+            stripePriceId: price.id,
+          })
+          .where(eq(billingProjects.id, projectId));
+      }
+
+      res.json({ 
+        success: true, 
+        paymentLink: paymentLink.url,
+        paymentLinkId: paymentLink.id,
+        productId: product.id,
+        priceId: price.id,
+      });
+    } catch (error: any) {
+      console.error("Error generating payment link:", error);
+      res.status(500).json({ message: "Failed to generate payment link", error: error.message });
     }
   });
 

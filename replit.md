@@ -22,9 +22,15 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
   - Track multiple projects per client with detailed status tracking
   - Itemized line items for each project (description, quantity, unit price, total)
   - Attach screenshots/documents to projects
-  - Manage Stripe payment links per project
+  - **Auto-Generated Stripe Payment Links**: Click "Generate Link" to auto-create a Stripe payment link for any invoice
+  - **Stripe Webhook Integration**: Payments are automatically marked as "paid" when customers complete checkout
   - Payment status tracking (pending/paid/overdue) with color coding
   - Send payment reminder emails directly from the dashboard
+- **Stripe Integration**: Connected via Replit Stripe connector (OAuth)
+  - Auto-creates products and prices in Stripe for each invoice
+  - Generates payment links with redirect to success page
+  - Webhook handler updates payment status when checkout completes
+  - Old payment links are archived when regenerating
 
 ## Tech Stack
 - **Frontend Framework**: React 18 with TypeScript

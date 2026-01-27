@@ -2188,6 +2188,7 @@ function BillingSection() {
   const [invoiceScreenshots, setInvoiceScreenshots] = useState<File[]>([]);
   const [uploadingInvoiceScreenshots, setUploadingInvoiceScreenshots] = useState(false);
   const [sendingQuickInvoice, setSendingQuickInvoice] = useState(false);
+  const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
 
   // Get projects for selected client
   const selectedClientProjects = selectedClientId !== 'new' 
@@ -2412,6 +2413,62 @@ function BillingSection() {
       alert('Failed to send itemized bill');
     }
     setSendingItemizedBill(null);
+  };
+
+  // Generate Stripe Payment Link
+  const generatePaymentLink = async () => {
+    const clientEmail = selectedClientId !== 'new' 
+      ? clients.find(c => c.id === selectedClientId)?.email 
+      : quickInvoice.clientEmail;
+    const clientName = selectedClientId !== 'new'
+      ? clients.find(c => c.id === selectedClientId)?.name
+      : quickInvoice.clientName;
+    
+    let projectName = quickInvoice.projectName;
+    let projectId: number | undefined;
+    if (selectedClientId !== 'new' && selectedProjectId !== 'new') {
+      const existingProject = selectedClientProjects.find(p => p.id === selectedProjectId);
+      if (existingProject) {
+        projectName = existingProject.projectName;
+        projectId = existingProject.id;
+      }
+    }
+    
+    if (!projectName) {
+      alert('Please enter a project name first');
+      return;
+    }
+    if (!quickInvoice.amount) {
+      alert('Please enter an amount first');
+      return;
+    }
+    
+    setGeneratingPaymentLink(true);
+    try {
+      const response = await fetch('/api/admin/billing/generate-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId,
+          projectName,
+          amount: quickInvoice.amount,
+          clientEmail,
+          clientName,
+        }),
+      });
+      
+      const data = await response.json();
+      if (data.success && data.paymentLink) {
+        setQuickInvoice(prev => ({ ...prev, paymentLink: data.paymentLink }));
+      } else {
+        alert(data.message || 'Failed to generate payment link');
+      }
+    } catch (error) {
+      console.error('Error generating payment link:', error);
+      alert('Failed to generate payment link');
+    } finally {
+      setGeneratingPaymentLink(false);
+    }
   };
 
   // Send Quick Invoice - creates client/project and sends email all at once
@@ -2677,13 +2734,24 @@ function BillingSection() {
             </div>
             <div>
               <label className="block text-sm text-muted-foreground mb-1">Stripe Payment Link</label>
-              <input
-                type="url"
-                placeholder="https://buy.stripe.com/..."
-                value={quickInvoice.paymentLink}
-                onChange={e => setQuickInvoice(prev => ({ ...prev, paymentLink: e.target.value }))}
-                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
-              />
+              <div className="flex gap-2">
+                <input
+                  type="url"
+                  placeholder="https://buy.stripe.com/..."
+                  value={quickInvoice.paymentLink}
+                  onChange={e => setQuickInvoice(prev => ({ ...prev, paymentLink: e.target.value }))}
+                  className="flex-1 px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                />
+                <button
+                  type="button"
+                  onClick={generatePaymentLink}
+                  disabled={generatingPaymentLink || !quickInvoice.amount}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {generatingPaymentLink ? 'Generating...' : 'Generate Link'}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Enter amount first, then click Generate to auto-create a Stripe link</p>
             </div>
           </div>
 

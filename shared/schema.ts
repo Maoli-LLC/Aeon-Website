@@ -183,6 +183,9 @@ export const billingProjects = pgTable("billing_projects", {
   projectName: varchar("project_name", { length: 255 }).notNull(),
   description: text("description"),
   stripePaymentLink: varchar("stripe_payment_link", { length: 500 }),
+  stripePaymentLinkId: varchar("stripe_payment_link_id", { length: 100 }),
+  stripeProductId: varchar("stripe_product_id", { length: 100 }),
+  stripePriceId: varchar("stripe_price_id", { length: 100 }),
   amount: varchar("amount", { length: 100 }), // e.g., "$25/month" or "$500 one-time"
   paymentStatus: varchar("payment_status", { length: 50 }).default("pending"), // pending, paid, overdue
   projectStatus: varchar("project_status", { length: 50 }).default("active"), // active, completed, on_hold, cancelled
