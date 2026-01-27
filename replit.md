@@ -12,6 +12,7 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Email Marketing**: Newsletter system with scheduling capabilities
 - **Custom Login**: Gold "TA" branded login page with Replit OAuth
 - **Analytics Dashboard**: Visitor tracking, page views, conversion tracking, UTM campaign attribution, device/browser stats
+- **Billing Management**: Track clients with multiple projects, attach screenshots, manage Stripe payment links, track payment status (pending/paid/overdue), send payment link emails
 
 ## Tech Stack
 - **Frontend Framework**: React 18 with TypeScript
