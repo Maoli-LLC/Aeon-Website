@@ -19,6 +19,8 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Styling**: Tailwind CSS v4 with custom theming
 - **UI Components**: shadcn/ui (Radix UI primitives)
 - **Routing**: React Router DOM v7
+- **Database**: Supabase PostgreSQL (migrated from Replit PostgreSQL for cost savings)
+- **ORM**: Drizzle ORM
 - **Email**: Gmail SMTP with App Password (nodemailer) - preferred over OAuth for simplicity and reliability
 
 ## User Preferences
