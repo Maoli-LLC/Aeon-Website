@@ -13,14 +13,17 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Custom Login**: Gold "TA" branded login page with Replit OAuth
 - **Analytics Dashboard**: Visitor tracking, page views, conversion tracking, UTM campaign attribution, device/browser stats
 - **Billing Management**: 
+  - **Dashboard Overview**: Summary cards showing total clients, projects, pending, overdue, and paid counts
+  - **Outstanding Bills Table**: Quick view of all pending/overdue payments with one-click status updates
+  - **All Payments Table**: Complete view of all clients and their payment status
+  - **CSV Export**: Export billing data for accountants with one click
   - Import clients from email subscribers with one click
   - Track multiple projects per client with detailed status tracking
   - Itemized line items for each project (description, quantity, unit price, total)
   - Attach screenshots/documents to projects
   - Manage Stripe payment links per project
-  - Payment status tracking (pending/paid/overdue)
-  - Send simple payment link emails
-  - Send detailed itemized bill emails with line items table, attachments, and payment link
+  - Payment status tracking (pending/paid/overdue) with color coding
+  - Send payment reminder emails directly from the dashboard
 
 ## Tech Stack
 - **Frontend Framework**: React 18 with TypeScript

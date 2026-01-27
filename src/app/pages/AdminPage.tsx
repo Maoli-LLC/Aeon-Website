@@ -2397,12 +2397,190 @@ function BillingSection() {
     setSendingItemizedBill(null);
   };
 
+  // Calculate summary stats
+  const allProjects = clients.flatMap(c => c.projects.map(p => ({ ...p, clientName: c.name, clientEmail: c.email })));
+  const pendingProjects = allProjects.filter(p => p.paymentStatus === 'pending');
+  const overdueProjects = allProjects.filter(p => p.paymentStatus === 'overdue');
+  const paidProjects = allProjects.filter(p => p.paymentStatus === 'paid');
+
+  // Export to CSV
+  const exportToCSV = () => {
+    const headers = ['Client Name', 'Client Email', 'Project', 'Amount', 'Status', 'Hosting Type', 'Next Payment Due', 'Notes'];
+    const rows = allProjects.map(p => [
+      p.clientName,
+      p.clientEmail,
+      p.projectName,
+      p.amount || '',
+      p.paymentStatus || 'pending',
+      p.hostingType || '',
+      p.nextPaymentDue ? formatDate(p.nextPaymentDue, 'MMM d, yyyy') : '',
+      (p.notes || '').replace(/,/g, ';')
+    ]);
+    
+    const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `billing-report-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <p className="text-white">Loading billing data...</p>;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center flex-wrap gap-3">
-        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Client Billing</h2>
+      {/* Dashboard Summary Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="bg-card border border-primary/20 rounded-lg p-4 text-center">
+          <p className="text-3xl font-bold text-primary">{clients.length}</p>
+          <p className="text-muted-foreground text-sm">Total Clients</p>
+        </div>
+        <div className="bg-card border border-primary/20 rounded-lg p-4 text-center">
+          <p className="text-3xl font-bold text-white">{allProjects.length}</p>
+          <p className="text-muted-foreground text-sm">Total Projects</p>
+        </div>
+        <div className="bg-card border border-yellow-500/30 rounded-lg p-4 text-center">
+          <p className="text-3xl font-bold text-yellow-500">{pendingProjects.length}</p>
+          <p className="text-muted-foreground text-sm">Pending</p>
+        </div>
+        <div className="bg-card border border-red-500/30 rounded-lg p-4 text-center">
+          <p className="text-3xl font-bold text-red-500">{overdueProjects.length}</p>
+          <p className="text-muted-foreground text-sm">Overdue</p>
+        </div>
+        <div className="bg-card border border-green-500/30 rounded-lg p-4 text-center">
+          <p className="text-3xl font-bold text-green-500">{paidProjects.length}</p>
+          <p className="text-muted-foreground text-sm">Paid</p>
+        </div>
+      </div>
+
+      {/* Quick Overview Table - Outstanding Bills */}
+      {(pendingProjects.length > 0 || overdueProjects.length > 0) && (
+        <div className="bg-card border border-primary/20 rounded-lg p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Outstanding Bills</h3>
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
+            >
+              📥 Export CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-primary/20">
+                  <th className="text-left p-2 text-primary">Client</th>
+                  <th className="text-left p-2 text-primary">Project</th>
+                  <th className="text-left p-2 text-primary">Amount</th>
+                  <th className="text-left p-2 text-primary">Status</th>
+                  <th className="text-left p-2 text-primary">Due Date</th>
+                  <th className="text-left p-2 text-primary">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...overdueProjects, ...pendingProjects].map(project => (
+                  <tr key={project.id} className="border-b border-primary/10 hover:bg-primary/5">
+                    <td className="p-2 text-white">{project.clientName}</td>
+                    <td className="p-2 text-white">{project.projectName}</td>
+                    <td className="p-2 text-white font-medium">{project.amount || '-'}</td>
+                    <td className="p-2">
+                      <select
+                        value={project.paymentStatus || 'pending'}
+                        onChange={(e) => updatePaymentStatus(project.id, e.target.value)}
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
+                          project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="overdue">Overdue</option>
+                      </select>
+                    </td>
+                    <td className="p-2 text-muted-foreground">
+                      {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
+                    </td>
+                    <td className="p-2">
+                      {project.stripePaymentLink && (
+                        <button
+                          onClick={() => {
+                            const client = clients.find(c => c.projects.some(p => p.id === project.id));
+                            if (client) sendPaymentLink(client, project);
+                          }}
+                          disabled={sendingPayment === project.id}
+                          className="px-2 py-1 text-xs bg-primary text-black rounded hover:bg-primary/90 disabled:opacity-50"
+                        >
+                          {sendingPayment === project.id ? 'Sending...' : 'Send Reminder'}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* All Payments Table */}
+      {allProjects.length > 0 && (
+        <div className="bg-card border border-primary/20 rounded-lg p-4">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>All Payments</h3>
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 flex items-center gap-2"
+            >
+              📥 Export All to CSV
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-primary/20">
+                  <th className="text-left p-2 text-primary">Client</th>
+                  <th className="text-left p-2 text-primary">Email</th>
+                  <th className="text-left p-2 text-primary">Project</th>
+                  <th className="text-left p-2 text-primary">Amount</th>
+                  <th className="text-left p-2 text-primary">Type</th>
+                  <th className="text-left p-2 text-primary">Status</th>
+                  <th className="text-left p-2 text-primary">Due Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allProjects.map(project => (
+                  <tr key={project.id} className="border-b border-primary/10 hover:bg-primary/5">
+                    <td className="p-2 text-white">{project.clientName}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{project.clientEmail}</td>
+                    <td className="p-2 text-white">{project.projectName}</td>
+                    <td className="p-2 text-white font-medium">{project.amount || '-'}</td>
+                    <td className="p-2 text-muted-foreground">{project.hostingType || '-'}</td>
+                    <td className="p-2">
+                      <span className={`px-2 py-1 rounded text-xs font-medium ${
+                        project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
+                        project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                        'bg-yellow-500/20 text-yellow-400'
+                      }`}>
+                        {project.paymentStatus || 'pending'}
+                      </span>
+                    </td>
+                    <td className="p-2 text-muted-foreground">
+                      {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Header with Actions */}
+      <div className="flex justify-between items-center flex-wrap gap-3 pt-4 border-t border-primary/20">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Manage Clients</h2>
         <div className="flex gap-2">
           <button
             onClick={importSubscribers}
