@@ -2161,12 +2161,12 @@ async function main() {
           project_name VARCHAR(255) NOT NULL,
           description TEXT,
           stripe_payment_link VARCHAR(500),
-          amount_billed NUMERIC(10,2) DEFAULT 0,
-          amount_paid NUMERIC(10,2) DEFAULT 0,
+          amount VARCHAR(100),
           payment_status VARCHAR(50) DEFAULT 'pending',
           project_status VARCHAR(50) DEFAULT 'active',
+          hosting_type VARCHAR(100),
+          next_payment_due TIMESTAMP,
           notes TEXT,
-          next_payment_due DATE,
           created_at TIMESTAMP DEFAULT NOW(),
           updated_at TIMESTAMP DEFAULT NOW()
         );
@@ -2190,7 +2190,7 @@ async function main() {
       `);
       console.log('Billing tables initialized');
     } catch (err) {
-      console.log('Billing tables check:', (err as Error).message);
+      console.log('Billing tables error:', (err as Error).message);
     }
 
     const PORT = 3001;
