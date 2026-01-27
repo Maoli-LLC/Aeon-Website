@@ -4,9 +4,13 @@ import { useUpload } from '@/hooks/use-upload';
 import { Calendar } from '@/app/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/popover';
 import { format } from 'date-fns';
-import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment, WebAppRequest } from '@shared/schema';
+import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment, WebAppRequest, BillingClient, BillingProject, BillingAttachment } from '@shared/schema';
 
-type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments' | 'analytics';
+type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments' | 'analytics' | 'billing';
+
+interface BillingClientWithProjects extends BillingClient {
+  projects: (BillingProject & { attachments: BillingAttachment[] })[];
+}
 
 export function AdminPage() {
   const { user, isLoading, isAuthenticated } = useAuth();
@@ -78,7 +82,7 @@ export function AdminPage() {
         </div>
 
         <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4 flex-wrap">
-          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments', 'analytics'] as AdminTab[]).map(tab => (
+          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments', 'analytics', 'billing'] as AdminTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -88,7 +92,7 @@ export function AdminPage() {
                   : 'border border-primary text-primary hover:bg-primary/10'
               }`}
             >
-              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : tab === 'comments' ? 'Comments' : 'Analytics'}
+              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : tab === 'comments' ? 'Comments' : tab === 'analytics' ? 'Analytics' : 'Billing'}
             </button>
           ))}
         </div>
@@ -101,6 +105,7 @@ export function AdminPage() {
         {activeTab === 'marketing' && <EmailMarketingSection />}
         {activeTab === 'comments' && <CommentsSection />}
         {activeTab === 'analytics' && <AnalyticsSection />}
+        {activeTab === 'billing' && <BillingSection />}
       </div>
     </div>
   );
@@ -2130,6 +2135,433 @@ function AnalyticsSection() {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function BillingSection() {
+  const [clients, setClients] = useState<BillingClientWithProjects[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showClientForm, setShowClientForm] = useState(false);
+  const [editingClient, setEditingClient] = useState<BillingClient | null>(null);
+  const [showProjectForm, setShowProjectForm] = useState<number | null>(null);
+  const [editingProject, setEditingProject] = useState<BillingProject | null>(null);
+  const [expandedClients, setExpandedClients] = useState<Set<number>>(new Set());
+  const [clientForm, setClientForm] = useState({ name: '', email: '', notes: '' });
+  const [projectForm, setProjectForm] = useState({ 
+    projectName: '', 
+    description: '', 
+    stripePaymentLink: '', 
+    amount: '', 
+    hostingType: 'monthly',
+    nextPaymentDue: '',
+    notes: '' 
+  });
+  const [sendingPayment, setSendingPayment] = useState<number | null>(null);
+  const [uploadingFor, setUploadingFor] = useState<number | null>(null);
+  const { uploadFile, isUploading } = useUpload({
+    onSuccess: async (response) => {
+      if (uploadingFor) {
+        await fetch('/api/admin/billing/attachments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            projectId: uploadingFor,
+            fileName: response.objectPath.split('/').pop() || 'screenshot',
+            fileUrl: response.objectPath,
+            fileType: 'image',
+          }),
+        });
+        fetchClients();
+        setUploadingFor(null);
+      }
+    },
+  });
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    const res = await fetch('/api/admin/billing/clients');
+    const data = await res.json();
+    setClients(data);
+    setLoading(false);
+  };
+
+  const toggleClient = (id: number) => {
+    setExpandedClients(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleClientSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const method = editingClient ? 'PUT' : 'POST';
+    const url = editingClient ? `/api/admin/billing/clients/${editingClient.id}` : '/api/admin/billing/clients';
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(clientForm),
+    });
+    setShowClientForm(false);
+    setEditingClient(null);
+    setClientForm({ name: '', email: '', notes: '' });
+    fetchClients();
+  };
+
+  const handleProjectSubmit = async (e: React.FormEvent, clientId: number) => {
+    e.preventDefault();
+    const method = editingProject ? 'PUT' : 'POST';
+    const url = editingProject ? `/api/admin/billing/projects/${editingProject.id}` : '/api/admin/billing/projects';
+    await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...projectForm, clientId }),
+    });
+    setShowProjectForm(null);
+    setEditingProject(null);
+    setProjectForm({ projectName: '', description: '', stripePaymentLink: '', amount: '', hostingType: 'monthly', nextPaymentDue: '', notes: '' });
+    fetchClients();
+  };
+
+  const deleteClient = async (id: number) => {
+    if (!confirm('Delete this client and all their projects?')) return;
+    await fetch(`/api/admin/billing/clients/${id}`, { method: 'DELETE' });
+    fetchClients();
+  };
+
+  const deleteProject = async (id: number) => {
+    if (!confirm('Delete this project?')) return;
+    await fetch(`/api/admin/billing/projects/${id}`, { method: 'DELETE' });
+    fetchClients();
+  };
+
+  const deleteAttachment = async (id: number) => {
+    if (!confirm('Delete this attachment?')) return;
+    await fetch(`/api/admin/billing/attachments/${id}`, { method: 'DELETE' });
+    fetchClients();
+  };
+
+  const updatePaymentStatus = async (projectId: number, status: string) => {
+    await fetch(`/api/admin/billing/projects/${projectId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentStatus: status }),
+    });
+    fetchClients();
+  };
+
+  const sendPaymentLink = async (client: BillingClient, project: BillingProject) => {
+    if (!project.stripePaymentLink) {
+      alert('Please add a Stripe payment link first');
+      return;
+    }
+    setSendingPayment(project.id);
+    try {
+      await fetch('/api/admin/billing/send-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientEmail: client.email,
+          clientName: client.name,
+          projectName: project.projectName,
+          stripePaymentLink: project.stripePaymentLink,
+          amount: project.amount,
+        }),
+      });
+      alert('Payment link sent successfully!');
+    } catch {
+      alert('Failed to send payment link');
+    }
+    setSendingPayment(null);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, projectId: number) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadingFor(projectId);
+      await uploadFile(file);
+    }
+  };
+
+  if (loading) return <p className="text-white">Loading billing data...</p>;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Client Billing</h2>
+        <button
+          onClick={() => { setShowClientForm(true); setEditingClient(null); setClientForm({ name: '', email: '', notes: '' }); }}
+          className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
+        >
+          + Add Client
+        </button>
+      </div>
+
+      {showClientForm && (
+        <form onSubmit={handleClientSubmit} className="bg-card border border-primary/20 rounded-lg p-6 space-y-4">
+          <h3 className="text-xl text-primary">{editingClient ? 'Edit Client' : 'New Client'}</h3>
+          <div className="grid md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Client Name"
+              value={clientForm.name}
+              onChange={e => setClientForm(prev => ({ ...prev, name: e.target.value }))}
+              className="px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              required
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              value={clientForm.email}
+              onChange={e => setClientForm(prev => ({ ...prev, email: e.target.value }))}
+              className="px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              required
+            />
+          </div>
+          <textarea
+            placeholder="Notes (optional)"
+            value={clientForm.notes}
+            onChange={e => setClientForm(prev => ({ ...prev, notes: e.target.value }))}
+            className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+            rows={2}
+          />
+          <div className="flex gap-2">
+            <button type="submit" className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90">
+              {editingClient ? 'Update' : 'Create'} Client
+            </button>
+            <button type="button" onClick={() => setShowClientForm(false)} className="px-4 py-2 border border-primary text-primary rounded-md">
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+
+      {clients.length === 0 ? (
+        <p className="text-muted-foreground">No clients yet. Add your first client above.</p>
+      ) : (
+        <div className="space-y-4">
+          {clients.map(client => (
+            <div key={client.id} className="bg-card border border-primary/20 rounded-lg overflow-hidden">
+              <div 
+                className="flex items-center justify-between p-4 cursor-pointer hover:bg-primary/5"
+                onClick={() => toggleClient(client.id)}
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl">{expandedClients.has(client.id) ? '▼' : '▶'}</span>
+                  <div>
+                    <h3 className="text-lg text-white font-medium">{client.name}</h3>
+                    <p className="text-muted-foreground text-sm">{client.email}</p>
+                  </div>
+                  <span className="px-2 py-1 bg-primary/20 text-primary text-sm rounded">
+                    {client.projects.length} project{client.projects.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={() => { setEditingClient(client); setClientForm({ name: client.name, email: client.email, notes: client.notes || '' }); setShowClientForm(true); }}
+                    className="px-3 py-1 text-sm border border-primary text-primary rounded hover:bg-primary/10"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => deleteClient(client.id)}
+                    className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500/10"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              {expandedClients.has(client.id) && (
+                <div className="border-t border-primary/20 p-4 space-y-4">
+                  <button
+                    onClick={() => { setShowProjectForm(client.id); setEditingProject(null); setProjectForm({ projectName: '', description: '', stripePaymentLink: '', amount: '', hostingType: 'monthly', nextPaymentDue: '', notes: '' }); }}
+                    className="px-3 py-1 text-sm bg-primary/20 text-primary rounded hover:bg-primary/30"
+                  >
+                    + Add Project
+                  </button>
+
+                  {showProjectForm === client.id && (
+                    <form onSubmit={e => handleProjectSubmit(e, client.id)} className="bg-background border border-primary/30 rounded p-4 space-y-3">
+                      <h4 className="text-primary">{editingProject ? 'Edit Project' : 'New Project'}</h4>
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Project Name"
+                          value={projectForm.projectName}
+                          onChange={e => setProjectForm(prev => ({ ...prev, projectName: e.target.value }))}
+                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                          required
+                        />
+                        <input
+                          type="text"
+                          placeholder="Amount (e.g., $25/month)"
+                          value={projectForm.amount}
+                          onChange={e => setProjectForm(prev => ({ ...prev, amount: e.target.value }))}
+                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                        />
+                        <input
+                          type="url"
+                          placeholder="Stripe Payment Link"
+                          value={projectForm.stripePaymentLink}
+                          onChange={e => setProjectForm(prev => ({ ...prev, stripePaymentLink: e.target.value }))}
+                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                        />
+                        <select
+                          value={projectForm.hostingType}
+                          onChange={e => setProjectForm(prev => ({ ...prev, hostingType: e.target.value }))}
+                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                        >
+                          <option value="monthly">Monthly</option>
+                          <option value="yearly">Yearly</option>
+                          <option value="one-time">One-Time</option>
+                        </select>
+                        <input
+                          type="date"
+                          placeholder="Next Payment Due"
+                          value={projectForm.nextPaymentDue}
+                          onChange={e => setProjectForm(prev => ({ ...prev, nextPaymentDue: e.target.value }))}
+                          className="px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                        />
+                      </div>
+                      <textarea
+                        placeholder="Description"
+                        value={projectForm.description}
+                        onChange={e => setProjectForm(prev => ({ ...prev, description: e.target.value }))}
+                        className="w-full px-3 py-2 bg-card border border-primary/30 rounded text-white text-sm"
+                        rows={2}
+                      />
+                      <div className="flex gap-2">
+                        <button type="submit" className="px-3 py-1 bg-primary text-black rounded text-sm">
+                          {editingProject ? 'Update' : 'Create'}
+                        </button>
+                        <button type="button" onClick={() => setShowProjectForm(null)} className="px-3 py-1 border border-primary text-primary rounded text-sm">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  )}
+
+                  {client.projects.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No projects yet.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {client.projects.map(project => (
+                        <div key={project.id} className="bg-background border border-primary/30 rounded p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div>
+                              <h4 className="text-white font-medium">{project.projectName}</h4>
+                              <p className="text-muted-foreground text-sm">{project.description}</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={project.paymentStatus || 'pending'}
+                                onChange={e => updatePaymentStatus(project.id, e.target.value)}
+                                className={`px-2 py-1 rounded text-sm border ${
+                                  project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400 border-green-500' :
+                                  project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400 border-red-500' :
+                                  'bg-yellow-500/20 text-yellow-400 border-yellow-500'
+                                }`}
+                              >
+                                <option value="pending">Pending</option>
+                                <option value="paid">Paid</option>
+                                <option value="overdue">Overdue</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="grid md:grid-cols-3 gap-2 text-sm mb-3">
+                            {project.amount && <div><span className="text-muted-foreground">Amount:</span> <span className="text-primary">{project.amount}</span></div>}
+                            {project.hostingType && <div><span className="text-muted-foreground">Type:</span> <span className="text-white capitalize">{project.hostingType}</span></div>}
+                            {project.nextPaymentDue && <div><span className="text-muted-foreground">Next Due:</span> <span className="text-white">{format(new Date(project.nextPaymentDue), 'MMM d, yyyy')}</span></div>}
+                          </div>
+
+                          {project.stripePaymentLink && (
+                            <div className="mb-3">
+                              <a href={project.stripePaymentLink} target="_blank" rel="noopener noreferrer" className="text-primary text-sm hover:underline break-all">
+                                {project.stripePaymentLink}
+                              </a>
+                            </div>
+                          )}
+
+                          {project.attachments.length > 0 && (
+                            <div className="mb-3">
+                              <p className="text-muted-foreground text-sm mb-2">Attachments:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {project.attachments.map(att => (
+                                  <div key={att.id} className="relative group">
+                                    <a href={att.fileUrl} target="_blank" rel="noopener noreferrer">
+                                      <img src={att.fileUrl} alt={att.fileName} className="w-20 h-20 object-cover rounded border border-primary/30" />
+                                    </a>
+                                    <button
+                                      onClick={() => deleteAttachment(att.id)}
+                                      className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => sendPaymentLink(client, project)}
+                              disabled={sendingPayment === project.id || !project.stripePaymentLink}
+                              className="px-3 py-1 text-sm bg-primary text-black rounded hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              {sendingPayment === project.id ? 'Sending...' : 'Send Payment Link'}
+                            </button>
+                            <label className="px-3 py-1 text-sm border border-primary text-primary rounded cursor-pointer hover:bg-primary/10">
+                              {isUploading && uploadingFor === project.id ? 'Uploading...' : '+ Screenshot'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={e => handleFileUpload(e, project.id)}
+                              />
+                            </label>
+                            <button
+                              onClick={() => {
+                                setEditingProject(project);
+                                setProjectForm({
+                                  projectName: project.projectName,
+                                  description: project.description || '',
+                                  stripePaymentLink: project.stripePaymentLink || '',
+                                  amount: project.amount || '',
+                                  hostingType: project.hostingType || 'monthly',
+                                  nextPaymentDue: project.nextPaymentDue ? format(new Date(project.nextPaymentDue), 'yyyy-MM-dd') : '',
+                                  notes: project.notes || '',
+                                });
+                                setShowProjectForm(client.id);
+                              }}
+                              className="px-3 py-1 text-sm border border-primary text-primary rounded hover:bg-primary/10"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => deleteProject(project.id)}
+                              className="px-3 py-1 text-sm border border-red-500 text-red-500 rounded hover:bg-red-500/10"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
