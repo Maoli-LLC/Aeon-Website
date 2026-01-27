@@ -2176,6 +2176,19 @@ function BillingSection() {
   const [showLineItemForm, setShowLineItemForm] = useState<number | null>(null);
   const [lineItemForm, setLineItemForm] = useState({ description: '', quantity: 1, unitPrice: '', notes: '' });
   const [sendingItemizedBill, setSendingItemizedBill] = useState<number | null>(null);
+  
+  // Quick Invoice State
+  const [showQuickInvoice, setShowQuickInvoice] = useState(false);
+  const [quickInvoice, setQuickInvoice] = useState({
+    clientEmail: '',
+    clientName: '',
+    projectName: '',
+    amount: '',
+    dueDate: '',
+    paymentLink: '',
+    description: '',
+  });
+  const [sendingQuickInvoice, setSendingQuickInvoice] = useState(false);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: async (response) => {
       if (uploadingFor) {
@@ -2397,6 +2410,35 @@ function BillingSection() {
     setSendingItemizedBill(null);
   };
 
+  // Send Quick Invoice - creates client/project and sends email all at once
+  const sendQuickInvoice = async () => {
+    if (!quickInvoice.clientEmail || !quickInvoice.projectName || !quickInvoice.amount) {
+      alert('Please fill in email, project name, and amount');
+      return;
+    }
+    setSendingQuickInvoice(true);
+    try {
+      const res = await fetch('/api/admin/billing/quick-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quickInvoice),
+      });
+      
+      if (res.ok) {
+        alert('Invoice sent successfully!');
+        setShowQuickInvoice(false);
+        setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentLink: '', description: '' });
+        fetchClients();
+      } else {
+        const err = await res.text();
+        alert('Failed to send invoice: ' + err);
+      }
+    } catch (error) {
+      alert('Failed to send invoice');
+    }
+    setSendingQuickInvoice(false);
+  };
+
   // Calculate summary stats
   const allProjects = clients.flatMap(c => c.projects.map(p => ({ ...p, clientName: c.name, clientEmail: c.email })));
   const pendingProjects = allProjects.filter(p => p.paymentStatus === 'pending');
@@ -2431,6 +2473,120 @@ function BillingSection() {
 
   return (
     <div className="space-y-6">
+      {/* Quick Invoice Button */}
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Billing Dashboard</h2>
+        <button
+          onClick={() => setShowQuickInvoice(true)}
+          className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 text-lg font-semibold flex items-center gap-2"
+        >
+          + Send Invoice
+        </button>
+      </div>
+
+      {/* Quick Invoice Form */}
+      {showQuickInvoice && (
+        <div className="bg-card border-2 border-green-500/50 rounded-lg p-6 space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-xl text-green-400 font-semibold">Quick Invoice</h3>
+            <button onClick={() => setShowQuickInvoice(false)} className="text-muted-foreground hover:text-white text-2xl">&times;</button>
+          </div>
+          <p className="text-muted-foreground text-sm">Fill in the details below and hit send. Everything gets saved and emailed in one click.</p>
+          
+          <div className="grid md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Client Email *</label>
+              <input
+                type="email"
+                placeholder="client@example.com"
+                value={quickInvoice.clientEmail}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, clientEmail: e.target.value }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Client Name (optional)</label>
+              <input
+                type="text"
+                placeholder="John Doe"
+                value={quickInvoice.clientName}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, clientName: e.target.value }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Project Name *</label>
+              <input
+                type="text"
+                placeholder="Website Design"
+                value={quickInvoice.projectName}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, projectName: e.target.value }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Amount *</label>
+              <input
+                type="text"
+                placeholder="$500"
+                value={quickInvoice.amount}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, amount: e.target.value }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Due Date</label>
+              <input
+                type="date"
+                value={quickInvoice.dueDate}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, dueDate: e.target.value }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">Stripe Payment Link</label>
+              <input
+                type="url"
+                placeholder="https://buy.stripe.com/..."
+                value={quickInvoice.paymentLink}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, paymentLink: e.target.value }))}
+                className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Description / Message</label>
+            <textarea
+              placeholder="Details about what this invoice is for..."
+              value={quickInvoice.description}
+              onChange={e => setQuickInvoice(prev => ({ ...prev, description: e.target.value }))}
+              className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+              rows={3}
+            />
+          </div>
+          
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={sendQuickInvoice}
+              disabled={sendingQuickInvoice}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold disabled:opacity-50 flex-1"
+            >
+              {sendingQuickInvoice ? 'Sending...' : 'Send Invoice Now'}
+            </button>
+            <button
+              onClick={() => setShowQuickInvoice(false)}
+              className="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary/10"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Dashboard Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-card border border-primary/20 rounded-lg p-4 text-center">

@@ -13,6 +13,7 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Custom Login**: Gold "TA" branded login page with Replit OAuth
 - **Analytics Dashboard**: Visitor tracking, page views, conversion tracking, UTM campaign attribution, device/browser stats
 - **Billing Management**: 
+  - **Quick Invoice**: One-click invoice creation - enter email, project, amount, due date, payment link, and description, then hit send. Creates client and project automatically.
   - **Dashboard Overview**: Summary cards showing total clients, projects, pending, overdue, and paid counts
   - **Outstanding Bills Table**: Quick view of all pending/overdue payments with one-click status updates
   - **All Payments Table**: Complete view of all clients and their payment status

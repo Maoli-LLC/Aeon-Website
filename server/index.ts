@@ -2,12 +2,16 @@ import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
+import multer from "multer";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
-import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { registerObjectStorageRoutes, ObjectStorageService, objectStorageClient } from "./replit_integrations/object_storage";
 import { db, pool } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
+
+// Multer for file uploads
+const upload = multer({ storage: multer.memoryStorage() });
 
 const app = express();
 
@@ -2114,6 +2118,102 @@ async function main() {
     } catch (error) {
       console.error("Error sending itemized bill:", error);
       res.status(500).json({ message: "Failed to send itemized bill" });
+    }
+  });
+
+  // Quick Invoice - creates client/project and sends email all in one go
+  app.post("/api/admin/billing/quick-invoice", isAuthenticated, isOwner, async (req: any, res) => {
+    try {
+      const { clientEmail, clientName, projectName, amount, dueDate, paymentLink, description } = req.body;
+      
+      if (!clientEmail || !projectName || !amount) {
+        return res.status(400).json({ message: "Email, project name, and amount are required" });
+      }
+
+      // Find or create client
+      let client = await db.select().from(billingClients).where(eq(billingClients.email, clientEmail)).limit(1);
+      let clientId: number;
+      
+      if (client.length === 0) {
+        const newClient = await db.insert(billingClients).values({
+          name: clientName || clientEmail.split('@')[0],
+          email: clientEmail,
+          notes: '',
+        }).returning();
+        clientId = newClient[0].id;
+      } else {
+        clientId = client[0].id;
+      }
+
+      // Create the project
+      const newProject = await db.insert(billingProjects).values({
+        clientId,
+        projectName,
+        description: description || '',
+        stripePaymentLink: paymentLink || '',
+        amount: amount,
+        hostingType: 'one-time',
+        nextPaymentDue: dueDate ? new Date(dueDate) : null,
+        paymentStatus: 'pending',
+        notes: '',
+      }).returning();
+      
+      const projectId = newProject[0].id;
+
+      // Format due date
+      const formattedDueDate = dueDate ? new Date(dueDate).toLocaleDateString('en-US', { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+      }) : '';
+
+      // Send the invoice email
+      const htmlBody = `
+        <div style="font-family: Georgia, serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #1a1a1a; color: #e5e5e5;">
+          <h1 style="color: #d4af37; text-align: center; font-size: 28px; margin-bottom: 30px;">Team Aeon</h1>
+          
+          <div style="background-color: #222; border: 1px solid #d4af37; border-radius: 8px; padding: 25px; margin-bottom: 25px;">
+            <h2 style="color: #fff; font-size: 22px; margin: 0 0 15px 0;">Invoice</h2>
+            <p style="color: #888; margin: 0 0 10px 0;">Project: <strong style="color: #d4af37;">${projectName}</strong></p>
+            
+            <div style="background-color: #1a1a1a; padding: 20px; border-radius: 4px; margin: 20px 0;">
+              <p style="color: #888; margin: 0 0 5px 0; font-size: 14px;">Amount Due:</p>
+              <p style="color: #d4af37; font-size: 36px; font-weight: bold; margin: 0;">${amount}</p>
+            </div>
+            
+            ${formattedDueDate ? `
+              <p style="color: #ccc; margin: 15px 0;">
+                <strong>Due Date:</strong> ${formattedDueDate}
+              </p>
+            ` : ''}
+            
+            ${description ? `
+              <div style="background-color: #1a1a1a; padding: 15px; border-radius: 4px; margin: 15px 0;">
+                <p style="color: #888; font-size: 14px; margin: 0 0 5px 0;">Details:</p>
+                <p style="color: #ccc; margin: 0; line-height: 1.6;">${description}</p>
+              </div>
+            ` : ''}
+          </div>
+          
+          ${paymentLink ? `
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${paymentLink}" style="display: inline-block; padding: 18px 50px; background-color: #d4af37; color: #000; text-decoration: none; border-radius: 4px; font-size: 18px; font-weight: bold;">Pay Now</a>
+            </div>
+          ` : ''}
+          
+          <p style="font-size: 14px; line-height: 1.6; color: #888; text-align: center; margin-top: 30px;">
+            If you have any questions, simply reply to this email.
+          </p>
+          
+          <hr style="border: none; border-top: 1px solid #333; margin: 30px 0;">
+          <p style="font-size: 12px; color: #666; text-align: center;">Team Aeon - Creating Digital Magic</p>
+        </div>
+      `;
+
+      await sendEmail(clientEmail, `Invoice: ${projectName} - ${amount}`, htmlBody);
+      
+      res.json({ success: true, projectId, clientId });
+    } catch (error) {
+      console.error("Error sending quick invoice:", error);
+      res.status(500).json({ message: "Failed to send invoice" });
     }
   });
 
