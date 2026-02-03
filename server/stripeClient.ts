@@ -16,12 +16,36 @@ async function getCredentials() {
 
   const connectorName = 'stripe';
   const isProduction = process.env.REPLIT_DEPLOYMENT === '1';
-  const targetEnvironment = isProduction ? 'production' : 'development';
-
+  
+  // Try production first, fallback to development
   const url = new URL(`https://${hostname}/api/v2/connection`);
   url.searchParams.set('include_secrets', 'true');
   url.searchParams.set('connector_names', connectorName);
-  url.searchParams.set('environment', targetEnvironment);
+  
+  // First try production if in production mode
+  if (isProduction) {
+    url.searchParams.set('environment', 'production');
+    const prodResponse = await fetch(url.toString(), {
+      headers: {
+        'Accept': 'application/json',
+        'X_REPLIT_TOKEN': xReplitToken
+      }
+    });
+    const prodData = await prodResponse.json();
+    const prodSettings = prodData.items?.[0];
+    
+    if (prodSettings?.settings?.publishable && prodSettings?.settings?.secret) {
+      connectionSettings = prodSettings;
+      return {
+        publishableKey: prodSettings.settings.publishable,
+        secretKey: prodSettings.settings.secret,
+      };
+    }
+    // Fall back to development if production not found
+    url.searchParams.set('environment', 'development');
+  } else {
+    url.searchParams.set('environment', 'development');
+  }
 
   const response = await fetch(url.toString(), {
     headers: {
@@ -35,7 +59,7 @@ async function getCredentials() {
   connectionSettings = data.items?.[0];
 
   if (!connectionSettings || (!connectionSettings.settings.publishable || !connectionSettings.settings.secret)) {
-    throw new Error(`Stripe ${targetEnvironment} connection not found`);
+    throw new Error(`Stripe connection not found - please connect Stripe via OAuth`);
   }
 
   return {
