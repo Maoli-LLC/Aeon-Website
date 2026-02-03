@@ -2245,8 +2245,14 @@ async function main() {
         priceId: price.id,
       });
     } catch (error: any) {
-      console.error("Error generating payment link:", error);
-      res.status(500).json({ message: "Failed to generate payment link", error: error.message });
+      console.error("Error generating payment link:", error?.message || error);
+      console.error("Full error:", JSON.stringify(error, null, 2));
+      res.status(500).json({ 
+        message: "Failed to generate payment link", 
+        error: error?.message || String(error),
+        code: error?.code,
+        type: error?.type
+      });
     }
   });
 

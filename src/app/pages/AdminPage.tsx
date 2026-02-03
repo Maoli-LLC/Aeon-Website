@@ -2464,11 +2464,12 @@ function BillingSection() {
         setQuickInvoice(prev => ({ ...prev, paymentLink: data.paymentLink }));
         fetchClients();
       } else {
-        alert(data.message || 'Failed to generate payment link');
+        console.error('Payment link error:', data);
+        alert(`Failed to generate payment link: ${data.error || data.message || 'Unknown error'}`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating payment link:', error);
-      alert('Failed to generate payment link');
+      alert(`Failed to generate payment link: ${error?.message || 'Network error'}`);
     } finally {
       setGeneratingPaymentLink(false);
     }
