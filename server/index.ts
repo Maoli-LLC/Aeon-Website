@@ -2428,7 +2428,7 @@ async function main() {
   app.post("/api/reviews", isAuthenticated, async (req: any, res) => {
     try {
       const { service, rating, reviewText } = req.body;
-      const user = req.user;
+      const claims = req.user?.claims;
       
       if (!service || !rating || !reviewText) {
         return res.status(400).json({ message: "Service, rating, and review are required" });
@@ -2438,10 +2438,14 @@ async function main() {
         return res.status(400).json({ message: "Rating must be between 1 and 5" });
       }
       
+      const userId = claims?.sub || 'unknown';
+      const userName = claims?.first_name || claims?.name || claims?.email?.split('@')[0] || 'Anonymous';
+      const userEmail = claims?.email || null;
+      
       const result = await pool.query(
         `INSERT INTO reviews (user_id, user_name, user_email, service, rating, review_text)
          VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-        [user.id, user.username || user.name || 'Anonymous', user.email || null, service, rating, reviewText]
+        [userId, userName, userEmail, service, rating, reviewText]
       );
       
       res.json({ success: true, review: result.rows[0] });
