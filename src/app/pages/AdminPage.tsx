@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/app/components/ui/pop
 import { format } from 'date-fns';
 import type { BlogPost, DreamRequest, MusicRequest, EmailSubscriber, BlogComment, WebAppRequest, BillingClient, BillingProject, BillingAttachment } from '@shared/schema';
 
-type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments' | 'analytics' | 'billing';
+type AdminTab = 'blogs' | 'dreams' | 'music' | 'webapp' | 'subscribers' | 'marketing' | 'comments' | 'analytics' | 'billing' | 'reviews';
 
 interface BillingClientWithProjects extends BillingClient {
   projects: (BillingProject & { attachments: BillingAttachment[] })[];
@@ -82,7 +82,7 @@ export function AdminPage() {
         </div>
 
         <div className="flex gap-4 mb-8 border-b border-primary/20 pb-4 flex-wrap">
-          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments', 'analytics', 'billing'] as AdminTab[]).map(tab => (
+          {(['blogs', 'dreams', 'music', 'webapp', 'subscribers', 'marketing', 'comments', 'analytics', 'billing', 'reviews'] as AdminTab[]).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -92,7 +92,7 @@ export function AdminPage() {
                   : 'border border-primary text-primary hover:bg-primary/10'
               }`}
             >
-              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : tab === 'comments' ? 'Comments' : tab === 'analytics' ? 'Analytics' : 'Billing'}
+              {tab === 'blogs' ? 'Blog Posts' : tab === 'dreams' ? 'Dream Requests' : tab === 'music' ? 'Music Requests' : tab === 'webapp' ? 'Website/App' : tab === 'subscribers' ? 'Email Subscribers' : tab === 'marketing' ? 'Email Marketing' : tab === 'comments' ? 'Comments' : tab === 'analytics' ? 'Analytics' : tab === 'billing' ? 'Billing' : 'Reviews'}
             </button>
           ))}
         </div>
@@ -106,6 +106,7 @@ export function AdminPage() {
         {activeTab === 'comments' && <CommentsSection />}
         {activeTab === 'analytics' && <AnalyticsSection />}
         {activeTab === 'billing' && <BillingSection />}
+        {activeTab === 'reviews' && <ReviewsSection />}
       </div>
     </div>
   );
@@ -3217,6 +3218,270 @@ function BillingSection() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface Review {
+  id: number;
+  user_id: string;
+  user_name: string;
+  user_email: string | null;
+  service: string;
+  rating: number;
+  review_text: string;
+  admin_response: string | null;
+  responded_at: string | null;
+  is_published: boolean;
+  created_at: string;
+}
+
+const SERVICES: Record<string, string> = {
+  'dream-interpretation': 'Dream Interpretation',
+  'music-single': 'Music - Single Song',
+  'music-album': 'Music - Album',
+  'website-creation': 'Website/App Creation',
+  'general': 'General Experience',
+};
+
+function ReviewsSection() {
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [respondingTo, setRespondingTo] = useState<number | null>(null);
+  const [responseText, setResponseText] = useState('');
+
+  useEffect(() => {
+    fetchReviews();
+  }, []);
+
+  const fetchReviews = async () => {
+    try {
+      const res = await fetch('/api/admin/reviews');
+      if (res.ok) {
+        const data = await res.json();
+        setReviews(data);
+      }
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+    }
+    setLoading(false);
+  };
+
+  const handleRespond = async (id: number) => {
+    if (!responseText.trim()) return;
+    
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}/respond`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response: responseText.trim() }),
+      });
+      
+      if (res.ok) {
+        fetchReviews();
+        setRespondingTo(null);
+        setResponseText('');
+      }
+    } catch (err) {
+      console.error('Error responding to review:', err);
+    }
+  };
+
+  const handleToggle = async (id: number) => {
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}/toggle`, {
+        method: 'PUT',
+      });
+      
+      if (res.ok) {
+        fetchReviews();
+      }
+    } catch (err) {
+      console.error('Error toggling review:', err);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Are you sure you want to delete this review?')) return;
+    
+    try {
+      const res = await fetch(`/api/admin/reviews/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (res.ok) {
+        fetchReviews();
+      }
+    } catch (err) {
+      console.error('Error deleting review:', err);
+    }
+  };
+
+  const renderStars = (count: number) => {
+    return (
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            className={star <= count ? 'text-primary' : 'text-white/30'}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+    );
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  if (loading) {
+    return <div className="text-white/60">Loading reviews...</div>;
+  }
+
+  const publishedCount = reviews.filter(r => r.is_published).length;
+  const avgRating = reviews.length > 0 
+    ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1) 
+    : '0';
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+          Reviews Management
+        </h2>
+        <div className="flex gap-4 text-sm">
+          <span className="text-white/60">Total: {reviews.length}</span>
+          <span className="text-green-400">Published: {publishedCount}</span>
+          <span className="text-yellow-400">Hidden: {reviews.length - publishedCount}</span>
+          <span className="text-primary">Avg Rating: {avgRating}★</span>
+        </div>
+      </div>
+
+      {reviews.length === 0 ? (
+        <div className="text-center py-12 text-white/60">
+          No reviews yet.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((review) => (
+            <div
+              key={review.id}
+              className={`bg-card border rounded-lg p-6 ${
+                review.is_published ? 'border-primary/20' : 'border-yellow-500/30 bg-yellow-900/10'
+              }`}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-white font-medium">{review.user_name}</span>
+                    {renderStars(review.rating)}
+                    {!review.is_published && (
+                      <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">
+                        Hidden
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-white/60">
+                    <span>{SERVICES[review.service] || review.service}</span>
+                    <span>•</span>
+                    <span>{formatDate(review.created_at)}</span>
+                    {review.user_email && (
+                      <>
+                        <span>•</span>
+                        <span>{review.user_email}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleToggle(review.id)}
+                    className={`px-3 py-1 rounded text-sm ${
+                      review.is_published
+                        ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30'
+                        : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                    }`}
+                  >
+                    {review.is_published ? 'Hide' : 'Publish'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(review.id)}
+                    className="px-3 py-1 rounded text-sm bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-white/90 mb-4">{review.review_text}</p>
+
+              {review.admin_response ? (
+                <div className="mt-4 pt-4 border-t border-primary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-primary text-sm font-medium">Your Response:</span>
+                    {review.responded_at && (
+                      <span className="text-xs text-white/40">
+                        {formatDate(review.responded_at)}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-white/80 text-sm italic">{review.admin_response}</p>
+                  <button
+                    onClick={() => {
+                      setRespondingTo(review.id);
+                      setResponseText(review.admin_response || '');
+                    }}
+                    className="text-primary text-sm mt-2 hover:underline"
+                  >
+                    Edit Response
+                  </button>
+                </div>
+              ) : respondingTo === review.id ? (
+                <div className="mt-4 pt-4 border-t border-primary/20">
+                  <textarea
+                    value={responseText}
+                    onChange={(e) => setResponseText(e.target.value)}
+                    placeholder="Write your response..."
+                    rows={3}
+                    className="w-full px-3 py-2 bg-background border border-primary/30 rounded text-white placeholder-white/40 focus:outline-none focus:border-primary resize-none text-sm"
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button
+                      onClick={() => handleRespond(review.id)}
+                      className="px-4 py-1 bg-primary text-black rounded text-sm hover:bg-primary/90"
+                    >
+                      Submit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setRespondingTo(null);
+                        setResponseText('');
+                      }}
+                      className="px-4 py-1 border border-primary/50 text-primary rounded text-sm hover:bg-primary/10"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setRespondingTo(review.id)}
+                  className="text-primary text-sm mt-2 hover:underline"
+                >
+                  Add Response
+                </button>
               )}
             </div>
           ))}
