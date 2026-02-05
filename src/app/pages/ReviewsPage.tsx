@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Star, MessageSquare, User, Send, CheckCircle } from 'lucide-react';
+import { Star, MessageSquare, User, Send, CheckCircle, X, PenLine } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
 interface Review {
@@ -22,9 +22,10 @@ const SERVICES = [
 ];
 
 export function ReviewsPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
   const [service, setService] = useState('');
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -50,7 +51,6 @@ export function ReviewsPage() {
     setLoading(false);
   };
 
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -74,6 +74,10 @@ export function ReviewsPage() {
         setRating(0);
         setReviewText('');
         fetchReviews();
+        setTimeout(() => {
+          setShowForm(false);
+          setSubmitted(false);
+        }, 2000);
       } else {
         const data = await res.json();
         setError(data.message || 'Failed to submit review');
@@ -82,6 +86,15 @@ export function ReviewsPage() {
       setError('Failed to submit review. Please try again.');
     }
     setSubmitting(false);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setService('');
+    setRating(0);
+    setReviewText('');
+    setError('');
+    setSubmitted(false);
   };
 
   const formatDate = (dateString: string) => {
@@ -122,11 +135,11 @@ export function ReviewsPage() {
           <h1 className="text-5xl mb-6 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
             Reviews
           </h1>
-          <p className="text-xl text-muted-foreground">
+          <p className="text-xl text-muted-foreground mb-8">
             See what our clients are saying about Team Aeon
           </p>
           {reviews.length > 0 && (
-            <div className="mt-8 flex items-center justify-center gap-4">
+            <div className="flex items-center justify-center gap-4 mb-8">
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
@@ -140,43 +153,113 @@ export function ReviewsPage() {
               <span className="text-muted-foreground">({reviews.length} reviews)</span>
             </div>
           )}
+          
+          {!authLoading && isAuthenticated && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+            >
+              <PenLine size={20} />
+              Submit a Review
+            </button>
+          )}
+          
+          {!authLoading && !isAuthenticated && (
+            <a
+              href="/login"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+            >
+              <User size={20} />
+              Log In to Submit a Review
+            </a>
+          )}
         </div>
       </section>
 
       <section className="py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-card border border-primary/20 rounded-lg p-8 mb-12">
-            <h2 className="text-2xl mb-6 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
-              Share Your Experience
-            </h2>
+          <h2 className="text-3xl mb-8 text-primary text-center" style={{ fontFamily: "'Cinzel', serif" }}>
+            Client Reviews
+          </h2>
 
-            {authLoading ? (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">Checking login status...</p>
-              </div>
-            ) : !isAuthenticated ? (
-              <div className="text-center py-8">
-                <User size={48} className="mx-auto mb-4 text-primary/50" />
-                <p className="text-muted-foreground mb-4">
-                  Please log in to leave a review
-                </p>
-                <a
-                  href="/login"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+          {loading ? (
+            <div className="text-center py-12 text-muted-foreground">
+              Loading reviews...
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="text-center py-12">
+              <MessageSquare size={48} className="mx-auto mb-4 text-primary/50" />
+              <p className="text-muted-foreground">
+                No reviews yet. Be the first to share your experience!
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {reviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="bg-card border border-primary/20 rounded-lg p-6"
                 >
-                  Log In to Review
-                </a>
-              </div>
-            ) : submitted ? (
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className="text-white font-medium">{review.user_name}</span>
+                        {renderStars(review.rating)}
+                      </div>
+                      <span className="text-sm text-primary/70">
+                        {getServiceLabel(review.service)}
+                      </span>
+                    </div>
+                    <span className="text-sm text-muted-foreground">
+                      {formatDate(review.created_at)}
+                    </span>
+                  </div>
+                  
+                  <p className="text-white/90 leading-relaxed mb-4">
+                    {review.review_text}
+                  </p>
+
+                  {review.admin_response && (
+                    <div className="mt-4 pt-4 border-t border-primary/20">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-primary text-sm font-medium">Team Aeon Response:</span>
+                        {review.responded_at && (
+                          <span className="text-xs text-muted-foreground">
+                            {formatDate(review.responded_at)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-white/80 text-sm italic">
+                        {review.admin_response}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {showForm && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-primary/30 rounded-lg p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                Submit a Review
+              </h2>
+              <button
+                onClick={closeForm}
+                className="text-white/60 hover:text-white"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {submitted ? (
               <div className="text-center py-8">
                 <CheckCircle size={48} className="mx-auto mb-4 text-green-500" />
-                <p className="text-white mb-4">Thank you for your review!</p>
-                <button
-                  onClick={() => setSubmitted(false)}
-                  className="text-primary hover:underline"
-                >
-                  Write another review
-                </button>
+                <p className="text-white">Thank you for your review!</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -242,80 +325,28 @@ export function ReviewsPage() {
                   <p className="text-red-400 text-sm">{error}</p>
                 )}
 
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
-                >
-                  <Send size={18} />
-                  {submitting ? 'Submitting...' : 'Submit Review'}
-                </button>
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  >
+                    <Send size={18} />
+                    {submitting ? 'Submitting...' : 'Submit Review'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    className="px-6 py-3 border border-primary/50 text-primary rounded-md hover:bg-primary/10 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </form>
             )}
           </div>
-
-          <h2 className="text-3xl mb-8 text-primary text-center" style={{ fontFamily: "'Cinzel', serif" }}>
-            Client Reviews
-          </h2>
-
-          {loading ? (
-            <div className="text-center py-12 text-muted-foreground">
-              Loading reviews...
-            </div>
-          ) : reviews.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageSquare size={48} className="mx-auto mb-4 text-primary/50" />
-              <p className="text-muted-foreground">
-                No reviews yet. Be the first to share your experience!
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  className="bg-card border border-primary/20 rounded-lg p-6"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-3 mb-2">
-                        <span className="text-white font-medium">{review.user_name}</span>
-                        {renderStars(review.rating)}
-                      </div>
-                      <span className="text-sm text-primary/70">
-                        {getServiceLabel(review.service)}
-                      </span>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {formatDate(review.created_at)}
-                    </span>
-                  </div>
-                  
-                  <p className="text-white/90 leading-relaxed mb-4">
-                    {review.review_text}
-                  </p>
-
-                  {review.admin_response && (
-                    <div className="mt-4 pt-4 border-t border-primary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-primary text-sm font-medium">Team Aeon Response:</span>
-                        {review.responded_at && (
-                          <span className="text-xs text-muted-foreground">
-                            {formatDate(review.responded_at)}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-white/80 text-sm italic">
-                        {review.admin_response}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
-      </section>
+      )}
     </div>
   );
 }
