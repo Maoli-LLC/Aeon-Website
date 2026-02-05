@@ -111,7 +111,7 @@ export function ReviewsPage() {
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            size={16}
+            size={20}
             className={star <= count ? 'text-primary fill-primary' : 'text-white/30'}
           />
         ))}
@@ -174,42 +174,42 @@ export function ReviewsPage() {
               </p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {reviews.map((review) => (
                 <div
                   key={review.id}
-                  className="bg-card border border-primary/20 rounded-lg p-6"
+                  className="bg-card border border-primary/20 rounded-lg p-8"
                 >
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-6">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="text-white font-medium">{review.user_name}</span>
+                        <span className="text-xl text-white font-medium">{review.user_name}</span>
                         {renderStars(review.rating)}
                       </div>
-                      <span className="text-sm text-primary/70">
+                      <span className="text-base text-primary/70">
                         {getServiceLabel(review.service)}
                       </span>
                     </div>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-base text-muted-foreground">
                       {formatDate(review.created_at)}
                     </span>
                   </div>
                   
-                  <p className="text-white/90 leading-relaxed mb-4">
+                  <p className="text-lg text-white/90 leading-relaxed mb-4">
                     {review.review_text}
                   </p>
 
                   {review.admin_response && (
-                    <div className="mt-4 pt-4 border-t border-primary/20">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-primary text-sm font-medium">Team Aeon Response:</span>
+                    <div className="mt-6 pt-6 border-t border-primary/20">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-primary text-base font-medium">Team Aeon Response:</span>
                         {review.responded_at && (
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-sm text-muted-foreground">
                             {formatDate(review.responded_at)}
                           </span>
                         )}
                       </div>
-                      <p className="text-white/80 text-sm italic">
+                      <p className="text-white/80 text-base italic leading-relaxed">
                         {review.admin_response}
                       </p>
                     </div>
