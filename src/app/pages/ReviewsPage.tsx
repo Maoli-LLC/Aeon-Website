@@ -139,7 +139,7 @@ export function ReviewsPage() {
             See what our clients are saying about Team Aeon
           </p>
           {reviews.length > 0 && (
-            <div className="flex items-center justify-center gap-4 mb-8">
+            <div className="flex items-center justify-center gap-4">
               <div className="flex gap-1">
                 {[1, 2, 3, 4, 5].map((star) => (
                   <Star
@@ -152,26 +152,6 @@ export function ReviewsPage() {
               <span className="text-2xl text-white">{averageRating}</span>
               <span className="text-muted-foreground">({reviews.length} reviews)</span>
             </div>
-          )}
-          
-          {!authLoading && isAuthenticated && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
-            >
-              <PenLine size={20} />
-              Submit a Review
-            </button>
-          )}
-          
-          {!authLoading && !isAuthenticated && (
-            <a
-              href="/login"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
-            >
-              <User size={20} />
-              Log In to Submit a Review
-            </a>
           )}
         </div>
       </section>
@@ -238,6 +218,28 @@ export function ReviewsPage() {
               ))}
             </div>
           )}
+
+          <div className="mt-12 text-center">
+            {!authLoading && isAuthenticated && (
+              <button
+                onClick={() => setShowForm(true)}
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+              >
+                <PenLine size={20} />
+                Submit a Review
+              </button>
+            )}
+            
+            {!authLoading && !isAuthenticated && (
+              <a
+                href="/login"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-black rounded-md hover:bg-primary/90 transition-colors"
+              >
+                <User size={20} />
+                Log In to Submit a Review
+              </a>
+            )}
+          </div>
         </div>
       </section>
 
