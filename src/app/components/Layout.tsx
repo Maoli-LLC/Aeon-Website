@@ -63,6 +63,7 @@ export function Layout() {
     { name: 'Web Services', path: '/services' },
     { name: 'Store', path: '/store' },
     { name: 'Blog', path: '/blog' },
+    { name: 'Reviews', path: '/reviews' },
     { name: 'Contact', path: '/contact' },
   ];
 
