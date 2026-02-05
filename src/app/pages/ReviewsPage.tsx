@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Star, MessageSquare, User, Send, CheckCircle } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 interface Review {
   id: number;
@@ -21,9 +22,9 @@ const SERVICES = [
 ];
 
 export function ReviewsPage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
   const [service, setService] = useState('');
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
@@ -34,7 +35,6 @@ export function ReviewsPage() {
 
   useEffect(() => {
     fetchReviews();
-    checkAuth();
   }, []);
 
   const fetchReviews = async () => {
@@ -50,18 +50,7 @@ export function ReviewsPage() {
     setLoading(false);
   };
 
-  const checkAuth = async () => {
-    try {
-      const res = await fetch('/api/auth/user');
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      }
-    } catch (err) {
-      console.error('Error checking auth:', err);
-    }
-  };
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -161,7 +150,11 @@ export function ReviewsPage() {
               Share Your Experience
             </h2>
 
-            {!user ? (
+            {authLoading ? (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">Checking login status...</p>
+              </div>
+            ) : !isAuthenticated ? (
               <div className="text-center py-8">
                 <User size={48} className="mx-auto mb-4 text-primary/50" />
                 <p className="text-muted-foreground mb-4">
