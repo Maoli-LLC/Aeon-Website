@@ -31,6 +31,11 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
   - Generates payment links with redirect to success page
   - Webhook handler updates payment status when checkout completes
   - Old payment links are archived when regenerating
+- **Reviews System**: Customer reviews with star ratings
+  - Users can submit reviews after logging in (select service, 1-5 stars, written review)
+  - Public reviews page shows all published reviews with average rating
+  - Admin can respond to reviews, hide/show reviews, and delete reviews
+  - Services: Dream Interpretation, Music (Single/Album), Website/App Creation, General Experience
 
 ## Tech Stack
 - **Frontend Framework**: React 18 with TypeScript
