@@ -2408,6 +2408,111 @@ async function main() {
   // Also run once on startup after a short delay
   setTimeout(processScheduledEmails, 5000);
 
+  // ============ REVIEWS API ============
+  
+  // Get all published reviews (public)
+  app.get("/api/reviews", async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT id, user_name, service, rating, review_text, admin_response, responded_at, created_at 
+         FROM reviews WHERE is_published = true ORDER BY created_at DESC`
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Submit a review (requires login)
+  app.post("/api/reviews", isAuthenticated, async (req: any, res) => {
+    try {
+      const { service, rating, reviewText } = req.body;
+      const user = req.user;
+      
+      if (!service || !rating || !reviewText) {
+        return res.status(400).json({ message: "Service, rating, and review are required" });
+      }
+      
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+      
+      const result = await pool.query(
+        `INSERT INTO reviews (user_id, user_name, user_email, service, rating, review_text)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [user.id, user.username || user.name || 'Anonymous', user.email || null, service, rating, reviewText]
+      );
+      
+      res.json({ success: true, review: result.rows[0] });
+    } catch (error) {
+      console.error("Error submitting review:", error);
+      res.status(500).json({ message: "Failed to submit review" });
+    }
+  });
+
+  // Get all reviews (admin)
+  app.get("/api/admin/reviews", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const result = await pool.query(
+        `SELECT * FROM reviews ORDER BY created_at DESC`
+      );
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching admin reviews:", error);
+      res.status(500).json({ message: "Failed to fetch reviews" });
+    }
+  });
+
+  // Respond to a review (admin)
+  app.put("/api/admin/reviews/:id/respond", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { response } = req.body;
+      
+      await pool.query(
+        `UPDATE reviews SET admin_response = $1, responded_at = NOW() WHERE id = $2`,
+        [response, id]
+      );
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error responding to review:", error);
+      res.status(500).json({ message: "Failed to respond to review" });
+    }
+  });
+
+  // Toggle review visibility (admin)
+  app.put("/api/admin/reviews/:id/toggle", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await pool.query(
+        `UPDATE reviews SET is_published = NOT is_published WHERE id = $1`,
+        [id]
+      );
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error toggling review:", error);
+      res.status(500).json({ message: "Failed to toggle review" });
+    }
+  });
+
+  // Delete a review (admin)
+  app.delete("/api/admin/reviews/:id", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { id } = req.params;
+      
+      await pool.query(`DELETE FROM reviews WHERE id = $1`, [id]);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting review:", error);
+      res.status(500).json({ message: "Failed to delete review" });
+    }
+  });
+
   // Production: Serve static files and handle client-side routing
   if (process.env.NODE_ENV === "production") {
     const __filename = fileURLToPath(import.meta.url);
@@ -2483,6 +2588,20 @@ async function main() {
           total_price VARCHAR(50) NOT NULL,
           service_date TIMESTAMP,
           notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        );
+        
+        CREATE TABLE IF NOT EXISTS reviews (
+          id SERIAL PRIMARY KEY,
+          user_id VARCHAR(255) NOT NULL,
+          user_name VARCHAR(255) NOT NULL,
+          user_email VARCHAR(255),
+          service VARCHAR(100) NOT NULL,
+          rating INTEGER NOT NULL,
+          review_text TEXT NOT NULL,
+          admin_response TEXT,
+          responded_at TIMESTAMP,
+          is_published BOOLEAN DEFAULT TRUE,
           created_at TIMESTAMP DEFAULT NOW()
         );
       `);

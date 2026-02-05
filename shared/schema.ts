@@ -228,3 +228,20 @@ export const billingLineItems = pgTable("billing_line_items", {
 
 export type BillingLineItem = typeof billingLineItems.$inferSelect;
 export type InsertBillingLineItem = typeof billingLineItems.$inferInsert;
+
+export const reviews = pgTable("reviews", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull(),
+  userName: varchar("user_name", { length: 255 }).notNull(),
+  userEmail: varchar("user_email", { length: 255 }),
+  service: varchar("service", { length: 100 }).notNull(),
+  rating: integer("rating").notNull(),
+  reviewText: text("review_text").notNull(),
+  adminResponse: text("admin_response"),
+  respondedAt: timestamp("responded_at"),
+  isPublished: boolean("is_published").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof reviews.$inferInsert;
