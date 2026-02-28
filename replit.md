@@ -24,13 +24,15 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
   - Attach screenshots/documents to projects
   - **Auto-Generated Stripe Payment Links**: Click "Generate Link" to auto-create a Stripe payment link for any invoice
   - **Stripe Webhook Integration**: Payments are automatically marked as "paid" when customers complete checkout
-  - Payment status tracking (pending/paid/overdue) with color coding
+  - **Multiple Invoices**: Send multiple invoices to the same client in one session; after sending, prompts to send another
+  - **Subscription Cancellation**: Cancel monthly subscriptions directly from dashboard; cancels in Stripe and updates status
+  - Payment status tracking (pending/paid/overdue/cancelled) with color coding
   - Send payment reminder emails directly from the dashboard
-- **Stripe Integration**: Connected via Replit Stripe connector (OAuth)
+- **Stripe Integration**: Using live production keys (STRIPE_LIVE_PUBLISHABLE_KEY, STRIPE_LIVE_SECRET_KEY)
   - Auto-creates products and prices in Stripe for each invoice
-  - Generates payment links with redirect to success page
-  - Webhook handler updates payment status when checkout completes
-  - Old payment links are archived when regenerating
+  - Generates payment links (one-time or monthly subscription) with redirect to success page
+  - Webhook handler updates payment status when checkout completes and captures subscription IDs
+  - Handles subscription.deleted webhook to auto-cancel in database
 - **Reviews System**: Customer reviews with star ratings
   - Users can submit reviews after logging in (select service, 1-5 stars, written review)
   - Public reviews page shows all published reviews with average rating

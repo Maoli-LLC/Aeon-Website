@@ -35,17 +35,48 @@ export class WebhookHandlers {
     return event;
   }
 
-  static async handlePaymentSuccess(paymentLinkId: string): Promise<void> {
+  static async handlePaymentSuccess(paymentLinkId: string, session: any): Promise<void> {
     if (!paymentLinkId) return;
     
     const projects = await db.select().from(billingProjects)
       .where(eq(billingProjects.stripePaymentLinkId, paymentLinkId));
     
     for (const project of projects) {
+      const updateData: any = { paymentStatus: 'paid', updatedAt: new Date() };
+      
+      if (session.subscription) {
+        updateData.stripeSubscriptionId = session.subscription;
+      }
+      
       await db.update(billingProjects)
-        .set({ paymentStatus: 'paid', updatedAt: new Date() })
+        .set(updateData)
         .where(eq(billingProjects.id, project.id));
-      console.log(`Payment marked as paid for project ${project.id}: ${project.projectName}`);
+      console.log(`Payment marked as paid for project ${project.id}: ${project.projectName}${session.subscription ? ' (subscription: ' + session.subscription + ')' : ''}`);
     }
+  }
+
+  static async handleSubscriptionCancelled(subscriptionId: string): Promise<void> {
+    if (!subscriptionId) return;
+    
+    const projects = await db.select().from(billingProjects)
+      .where(eq(billingProjects.stripeSubscriptionId, subscriptionId));
+    
+    for (const project of projects) {
+      await db.update(billingProjects)
+        .set({ 
+          paymentStatus: 'cancelled', 
+          projectStatus: 'cancelled',
+          stripeSubscriptionId: null,
+          updatedAt: new Date() 
+        })
+        .where(eq(billingProjects.id, project.id));
+      console.log(`Subscription cancelled via webhook for project ${project.id}: ${project.projectName}`);
+    }
+  }
+
+  static async cancelSubscription(subscriptionId: string): Promise<void> {
+    const stripe = await getUncachableStripeClient();
+    await stripe.subscriptions.cancel(subscriptionId);
+    console.log(`Subscription cancelled: ${subscriptionId}`);
   }
 }

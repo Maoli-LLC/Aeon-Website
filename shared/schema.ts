@@ -186,10 +186,11 @@ export const billingProjects = pgTable("billing_projects", {
   stripePaymentLinkId: varchar("stripe_payment_link_id", { length: 100 }),
   stripeProductId: varchar("stripe_product_id", { length: 100 }),
   stripePriceId: varchar("stripe_price_id", { length: 100 }),
-  amount: varchar("amount", { length: 100 }), // e.g., "$25/month" or "$500 one-time"
-  paymentStatus: varchar("payment_status", { length: 50 }).default("pending"), // pending, paid, overdue
-  projectStatus: varchar("project_status", { length: 50 }).default("active"), // active, completed, on_hold, cancelled
-  hostingType: varchar("hosting_type", { length: 100 }), // e.g., "monthly", "yearly", "one-time"
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 100 }),
+  amount: varchar("amount", { length: 100 }),
+  paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
+  projectStatus: varchar("project_status", { length: 50 }).default("active"),
+  hostingType: varchar("hosting_type", { length: 100 }),
   nextPaymentDue: timestamp("next_payment_due"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),

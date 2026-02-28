@@ -51,8 +51,13 @@ app.post(
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object as any;
         if (session.payment_link) {
-          await WebhookHandlers.handlePaymentSuccess(session.payment_link);
+          await WebhookHandlers.handlePaymentSuccess(session.payment_link, session);
         }
+      }
+
+      if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object as any;
+        await WebhookHandlers.handleSubscriptionCancelled(subscription.id);
       }
 
       res.status(200).json({ received: true });
@@ -2256,10 +2261,47 @@ async function main() {
     }
   });
 
+  // Cancel Stripe Subscription
+  app.post("/api/admin/billing/cancel-subscription", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const { projectId } = req.body;
+      
+      if (!projectId) {
+        return res.status(400).json({ message: "Project ID is required" });
+      }
+
+      const [project] = await db.select().from(billingProjects).where(eq(billingProjects.id, projectId));
+      
+      if (!project) {
+        return res.status(404).json({ message: "Project not found" });
+      }
+
+      if (!project.stripeSubscriptionId) {
+        return res.status(400).json({ message: "No subscription found for this project" });
+      }
+
+      await WebhookHandlers.cancelSubscription(project.stripeSubscriptionId);
+
+      await db.update(billingProjects)
+        .set({ 
+          paymentStatus: 'cancelled',
+          projectStatus: 'cancelled',
+          stripeSubscriptionId: null,
+          updatedAt: new Date(),
+        })
+        .where(eq(billingProjects.id, projectId));
+
+      res.json({ success: true, message: "Subscription cancelled successfully" });
+    } catch (error: any) {
+      console.error("Error cancelling subscription:", error?.message || error);
+      res.status(500).json({ message: "Failed to cancel subscription", error: error?.message });
+    }
+  });
+
   // Quick Invoice - creates client/project and sends email all in one go
   app.post("/api/admin/billing/quick-invoice", isAuthenticated, isOwner, async (req: any, res) => {
     try {
-      const { clientId: existingClientId, clientEmail, clientName, projectId: existingProjectId, projectName, amount, dueDate, paymentLink, description, screenshotUrls } = req.body;
+      const { clientId: existingClientId, clientEmail, clientName, projectId: existingProjectId, projectName, amount, dueDate, paymentLink, paymentType, description, screenshotUrls } = req.body;
       
       if (!clientEmail || !amount) {
         return res.status(400).json({ message: "Email and amount are required" });
@@ -2311,7 +2353,7 @@ async function main() {
           description: description || '',
           stripePaymentLink: paymentLink || '',
           amount: amount,
-          hostingType: 'one-time',
+          hostingType: paymentType === 'monthly' ? 'monthly' : 'one-time',
           nextPaymentDue: dueDate ? new Date(dueDate) : null,
           paymentStatus: 'pending',
           notes: '',

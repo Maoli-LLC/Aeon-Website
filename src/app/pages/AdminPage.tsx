@@ -2191,6 +2191,7 @@ function BillingSection() {
   const [uploadingInvoiceScreenshots, setUploadingInvoiceScreenshots] = useState(false);
   const [sendingQuickInvoice, setSendingQuickInvoice] = useState(false);
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
+  const [cancellingSubscription, setCancellingSubscription] = useState<number | null>(null);
 
   // Get projects for selected client
   const selectedClientProjects = selectedClientId !== 'new' 
@@ -2476,6 +2477,29 @@ function BillingSection() {
     }
   };
 
+  const cancelSubscription = async (projectId: number, projectName: string) => {
+    if (!confirm(`Cancel the subscription for "${projectName}"? This will immediately stop recurring billing in Stripe.`)) return;
+    
+    setCancellingSubscription(projectId);
+    try {
+      const res = await fetch('/api/admin/billing/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Subscription cancelled successfully');
+        fetchClients();
+      } else {
+        alert(`Failed to cancel subscription: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      alert(`Failed to cancel subscription: ${error?.message || 'Network error'}`);
+    }
+    setCancellingSubscription(null);
+  };
+
   // Send Quick Invoice - creates client/project and sends email all at once
   const sendQuickInvoice = async () => {
     // Validate based on whether existing or new client/project
@@ -2538,18 +2562,37 @@ function BillingSection() {
           amount: quickInvoice.amount,
           dueDate: quickInvoice.dueDate,
           paymentLink: quickInvoice.paymentLink,
+          paymentType: quickInvoice.paymentType,
           description: quickInvoice.description,
           screenshotUrls,
         }),
       });
       
       if (res.ok) {
-        alert('Invoice sent successfully!');
-        setShowQuickInvoice(false);
-        setSelectedClientId('new');
-        setSelectedProjectId('new');
-        setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentType: 'one_time', paymentLink: '', description: '' });
-        setInvoiceScreenshots([]);
+        const responseData = await res.json();
+        const sendAnother = confirm('Invoice sent successfully! Would you like to send another invoice to the same client?');
+        if (sendAnother) {
+          if (responseData.clientId) {
+            setSelectedClientId(responseData.clientId);
+          }
+          setSelectedProjectId('new');
+          setQuickInvoice(prev => ({ 
+            ...prev, 
+            projectName: '', 
+            amount: '', 
+            dueDate: '', 
+            paymentType: 'one_time', 
+            paymentLink: '', 
+            description: '' 
+          }));
+          setInvoiceScreenshots([]);
+        } else {
+          setShowQuickInvoice(false);
+          setSelectedClientId('new');
+          setSelectedProjectId('new');
+          setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentType: 'one_time', paymentLink: '', description: '' });
+          setInvoiceScreenshots([]);
+        }
         fetchClients();
       } else {
         const err = await res.text();
@@ -2893,12 +2936,14 @@ function BillingSection() {
                         className={`px-2 py-1 rounded text-xs font-medium ${
                           project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
                           project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                          project.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
                           'bg-yellow-500/20 text-yellow-400'
                         }`}
                       >
                         <option value="pending">Pending</option>
                         <option value="paid">Paid</option>
                         <option value="overdue">Overdue</option>
+                        <option value="cancelled">Cancelled</option>
                       </select>
                     </td>
                     <td className="p-2 text-muted-foreground">
@@ -2915,6 +2960,15 @@ function BillingSection() {
                           className="px-2 py-1 text-xs bg-primary text-black rounded hover:bg-primary/90 disabled:opacity-50"
                         >
                           {sendingPayment === project.id ? 'Sending...' : 'Send Reminder'}
+                        </button>
+                      )}
+                      {project.stripeSubscriptionId && (
+                        <button
+                          onClick={() => cancelSubscription(project.id, project.projectName)}
+                          disabled={cancellingSubscription === project.id}
+                          className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          {cancellingSubscription === project.id ? 'Cancelling...' : 'Cancel Sub'}
                         </button>
                       )}
                       <button
@@ -3015,6 +3069,7 @@ function BillingSection() {
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
                         project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                        project.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
                         'bg-yellow-500/20 text-yellow-400'
                       }`}>
                         {project.paymentStatus || 'pending'}
@@ -3023,7 +3078,16 @@ function BillingSection() {
                     <td className="p-2 text-muted-foreground">
                       {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
                     </td>
-                    <td className="p-2">
+                    <td className="p-2 flex gap-2">
+                      {project.stripeSubscriptionId && project.paymentStatus !== 'cancelled' && (
+                        <button
+                          onClick={() => cancelSubscription(project.id, project.projectName)}
+                          disabled={cancellingSubscription === project.id}
+                          className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          {cancellingSubscription === project.id ? 'Cancelling...' : 'Cancel Sub'}
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           if (confirm('Delete this project?')) deleteProject(project.id);
