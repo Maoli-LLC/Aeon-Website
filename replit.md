@@ -28,6 +28,7 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
   - **Stripe Webhook Integration**: Payments are automatically marked as "paid" when customers complete checkout
   - **Multiple Invoices**: Send multiple invoices to the same client in one session; after sending, prompts to send another
   - **Subscription Cancellation**: Cancel monthly subscriptions directly from dashboard; cancels in Stripe and updates status
+  - **Stripe Sync**: "Sync Stripe" button checks all active/cancelled subscriptions in Stripe and syncs invoice statuses, creates missing invoice records, and auto-imports new clients
   - Payment status tracking (pending/paid/overdue/cancelled) with color coding
   - Send payment reminder emails directly from the dashboard
 - **Stripe Integration**: Using live production keys (STRIPE_LIVE_PUBLISHABLE_KEY, STRIPE_LIVE_SECRET_KEY)

@@ -2194,6 +2194,7 @@ function BillingSection() {
   const [sendingQuickInvoice, setSendingQuickInvoice] = useState(false);
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<number | null>(null);
+  const [syncingStripe, setSyncingStripe] = useState(false);
 
   // Get projects for selected client
   const selectedClientProjects = selectedClientId !== 'new' 
@@ -2404,6 +2405,23 @@ function BillingSection() {
       alert('Failed to import subscribers');
     }
     setImportingSubscribers(false);
+  };
+
+  const syncStripe = async () => {
+    setSyncingStripe(true);
+    try {
+      const res = await fetch('/api/admin/billing/sync-stripe', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Stripe sync complete! Synced: ${data.synced}, New: ${data.created}, Cancelled: ${data.cancelled}`);
+        fetchClients();
+      } else {
+        alert(`Sync failed: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      alert(`Sync failed: ${error?.message || 'Network error'}`);
+    }
+    setSyncingStripe(false);
   };
 
   const fetchLineItems = async (projectId: number) => {
@@ -2984,6 +3002,17 @@ function BillingSection() {
           </div>
         </div>
       )}
+
+      {/* Sync Stripe Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={syncStripe}
+          disabled={syncingStripe}
+          className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center gap-2"
+        >
+          {syncingStripe ? 'Syncing...' : 'Sync Stripe'}
+        </button>
+      </div>
 
       {/* Dashboard Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
