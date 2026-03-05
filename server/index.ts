@@ -2034,128 +2034,155 @@ async function main() {
   });
 
   // Sync Stripe subscriptions - checks active subs and updates invoice statuses
+  async function performStripeSync(): Promise<{ synced: number; created: number; cancelled: number }> {
+    const stripe = await getUncachableStripeClient();
+    const activeSubs = await stripe.subscriptions.list({ status: 'active', limit: 100 });
+    
+    let synced = 0;
+    let created = 0;
+
+    for (const sub of activeSubs.data) {
+      let custEmail = '';
+      try {
+        const cust = await stripe.customers.retrieve(sub.customer as string);
+        if ('email' in cust && cust.email) custEmail = cust.email;
+      } catch {}
+
+      if (!custEmail) continue;
+
+      const amount = (sub.items.data[0]?.price?.unit_amount || 0) / 100;
+      const interval = sub.items.data[0]?.price?.recurring?.interval || 'month';
+
+      const existingInvoices = await db.select().from(billingInvoices)
+        .where(eq(billingInvoices.stripeSubscriptionId, sub.id));
+      
+      if (existingInvoices.length > 0) {
+        for (const inv of existingInvoices) {
+          if (inv.paymentStatus !== 'paid') {
+            await db.update(billingInvoices)
+              .set({ paymentStatus: 'paid', paidAt: new Date(), updatedAt: new Date() })
+              .where(eq(billingInvoices.id, inv.id));
+            synced++;
+          }
+        }
+        continue;
+      }
+
+      const existingProjects = await db.select().from(billingProjects)
+        .where(eq(billingProjects.stripeSubscriptionId, sub.id));
+      
+      if (existingProjects.length > 0) {
+        const proj = existingProjects[0];
+        const existingProjInvoices = await db.select().from(billingInvoices)
+          .where(eq(billingInvoices.projectId, proj.id));
+        
+        if (existingProjInvoices.length === 0) {
+          await db.insert(billingInvoices).values({
+            projectId: proj.id,
+            clientId: proj.clientId,
+            amount: String(amount),
+            description: `${proj.projectName} - ${interval}ly subscription`,
+            paymentType: 'monthly',
+            paymentStatus: 'paid',
+            stripeSubscriptionId: sub.id,
+            paidAt: new Date(),
+          });
+          created++;
+        }
+        continue;
+      }
+
+      let clients = await db.select().from(billingClients)
+        .where(eq(billingClients.email, custEmail));
+      
+      let clientId: number;
+      if (clients.length === 0) {
+        const newClient = await db.insert(billingClients).values({
+          email: custEmail,
+          name: custEmail.split('@')[0],
+          notes: `Auto-imported from Stripe sync`,
+        }).returning();
+        clientId = newClient[0].id;
+      } else {
+        clientId = clients[0].id;
+      }
+
+      let prodName = '';
+      try {
+        if (typeof sub.items.data[0]?.price?.product === 'string') {
+          const prod = await stripe.products.retrieve(sub.items.data[0].price.product);
+          prodName = prod.name || '';
+        }
+      } catch {}
+
+      const projName = prodName || `Stripe Subscription ${sub.id.slice(-8)}`;
+      const newProject = await db.insert(billingProjects).values({
+        clientId,
+        projectName: projName,
+        projectStatus: 'active',
+        stripeSubscriptionId: sub.id,
+      }).returning();
+
+      await db.insert(billingInvoices).values({
+        projectId: newProject[0].id,
+        clientId,
+        amount: String(amount),
+        description: `${projName} - $${amount}/${interval}`,
+        paymentType: 'monthly',
+        paymentStatus: 'paid',
+        stripeSubscriptionId: sub.id,
+        paidAt: new Date(),
+      });
+      created++;
+    }
+
+    const cancelledSubs = await stripe.subscriptions.list({ status: 'canceled', limit: 50 });
+    let cancelled = 0;
+    for (const sub of cancelledSubs.data) {
+      const invoices = await db.select().from(billingInvoices)
+        .where(eq(billingInvoices.stripeSubscriptionId, sub.id));
+      for (const inv of invoices) {
+        if (inv.paymentStatus !== 'cancelled') {
+          await db.update(billingInvoices)
+            .set({ paymentStatus: 'cancelled', stripeSubscriptionId: null, updatedAt: new Date() })
+            .where(eq(billingInvoices.id, inv.id));
+          cancelled++;
+        }
+      }
+    }
+
+    return { synced, created, cancelled };
+  }
+
+  function scheduleDailyStripeSync() {
+    const now = new Date();
+    const nextRun = new Date(now);
+    nextRun.setHours(0, 1, 0, 0);
+    if (nextRun <= now) {
+      nextRun.setDate(nextRun.getDate() + 1);
+    }
+    const msUntilNextRun = nextRun.getTime() - now.getTime();
+    
+    console.log(`[Stripe Sync] Next auto-sync scheduled for ${nextRun.toISOString()} (in ${Math.round(msUntilNextRun / 60000)} minutes)`);
+    
+    setTimeout(async () => {
+      try {
+        console.log(`[Stripe Sync] Running daily auto-sync at ${new Date().toISOString()}`);
+        const result = await performStripeSync();
+        console.log(`[Stripe Sync] Complete - Synced: ${result.synced}, Created: ${result.created}, Cancelled: ${result.cancelled}`);
+      } catch (error: any) {
+        console.error(`[Stripe Sync] Auto-sync failed:`, error?.message || error);
+      }
+      scheduleDailyStripeSync();
+    }, msUntilNextRun);
+  }
+
+  scheduleDailyStripeSync();
+
   app.post("/api/admin/billing/sync-stripe", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const stripe = await getUncachableStripeClient();
-      const activeSubs = await stripe.subscriptions.list({ status: 'active', limit: 100 });
-      
-      let synced = 0;
-      let created = 0;
-
-      for (const sub of activeSubs.data) {
-        let custEmail = '';
-        try {
-          const cust = await stripe.customers.retrieve(sub.customer as string);
-          if ('email' in cust && cust.email) custEmail = cust.email;
-        } catch {}
-
-        if (!custEmail) continue;
-
-        const amount = (sub.items.data[0]?.price?.unit_amount || 0) / 100;
-        const interval = sub.items.data[0]?.price?.recurring?.interval || 'month';
-        const productName = sub.items.data[0]?.price?.product 
-          ? (typeof sub.items.data[0].price.product === 'string' ? sub.items.data[0].price.product : (sub.items.data[0].price.product as any).name || '')
-          : '';
-
-        const existingInvoices = await db.select().from(billingInvoices)
-          .where(eq(billingInvoices.stripeSubscriptionId, sub.id));
-        
-        if (existingInvoices.length > 0) {
-          for (const inv of existingInvoices) {
-            if (inv.paymentStatus !== 'paid') {
-              await db.update(billingInvoices)
-                .set({ paymentStatus: 'paid', paidAt: new Date(), updatedAt: new Date() })
-                .where(eq(billingInvoices.id, inv.id));
-              synced++;
-            }
-          }
-          continue;
-        }
-
-        const existingProjects = await db.select().from(billingProjects)
-          .where(eq(billingProjects.stripeSubscriptionId, sub.id));
-        
-        if (existingProjects.length > 0) {
-          const proj = existingProjects[0];
-          const existingProjInvoices = await db.select().from(billingInvoices)
-            .where(eq(billingInvoices.projectId, proj.id));
-          
-          if (existingProjInvoices.length === 0) {
-            await db.insert(billingInvoices).values({
-              projectId: proj.id,
-              clientId: proj.clientId,
-              amount: String(amount),
-              description: `${proj.projectName} - ${interval}ly subscription`,
-              paymentType: 'monthly',
-              paymentStatus: 'paid',
-              stripeSubscriptionId: sub.id,
-              paidAt: new Date(),
-            });
-            created++;
-          }
-          continue;
-        }
-
-        let clients = await db.select().from(billingClients)
-          .where(eq(billingClients.email, custEmail));
-        
-        let clientId: number;
-        if (clients.length === 0) {
-          const newClient = await db.insert(billingClients).values({
-            email: custEmail,
-            name: custEmail.split('@')[0],
-            notes: `Auto-imported from Stripe sync`,
-          }).returning();
-          clientId = newClient[0].id;
-        } else {
-          clientId = clients[0].id;
-        }
-
-        let prodName = '';
-        try {
-          if (typeof sub.items.data[0]?.price?.product === 'string') {
-            const prod = await stripe.products.retrieve(sub.items.data[0].price.product);
-            prodName = prod.name || '';
-          }
-        } catch {}
-
-        const projName = prodName || `Stripe Subscription ${sub.id.slice(-8)}`;
-        const newProject = await db.insert(billingProjects).values({
-          clientId,
-          projectName: projName,
-          projectStatus: 'active',
-          stripeSubscriptionId: sub.id,
-        }).returning();
-
-        await db.insert(billingInvoices).values({
-          projectId: newProject[0].id,
-          clientId,
-          amount: String(amount),
-          description: `${projName} - $${amount}/${interval}`,
-          paymentType: 'monthly',
-          paymentStatus: 'paid',
-          stripeSubscriptionId: sub.id,
-          paidAt: new Date(),
-        });
-        created++;
-      }
-
-      const cancelledSubs = await stripe.subscriptions.list({ status: 'canceled', limit: 50 });
-      let cancelled = 0;
-      for (const sub of cancelledSubs.data) {
-        const invoices = await db.select().from(billingInvoices)
-          .where(eq(billingInvoices.stripeSubscriptionId, sub.id));
-        for (const inv of invoices) {
-          if (inv.paymentStatus !== 'cancelled') {
-            await db.update(billingInvoices)
-              .set({ paymentStatus: 'cancelled', stripeSubscriptionId: null, updatedAt: new Date() })
-              .where(eq(billingInvoices.id, inv.id));
-            cancelled++;
-          }
-        }
-      }
-
-      res.json({ success: true, synced, created, cancelled });
+      const result = await performStripeSync();
+      res.json({ success: true, ...result });
     } catch (error: any) {
       console.error("Error syncing Stripe:", error?.message || error);
       res.status(500).json({ message: "Failed to sync with Stripe", error: error?.message });
