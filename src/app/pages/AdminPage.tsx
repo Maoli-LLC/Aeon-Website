@@ -2578,24 +2578,30 @@ function BillingSection() {
       
       if (res.ok) {
         const responseData = await res.json();
-        const sendAnother = confirm('Invoice sent successfully! Would you like to send another invoice to the same client?');
+        const sendAnother = confirm('Invoice sent successfully! Would you like to send another invoice to this client?');
         if (sendAnother) {
-          if (responseData.clientId) {
-            setSelectedClientId(responseData.clientId);
+          const keepClientId = responseData.clientId || (selectedClientId !== 'new' ? selectedClientId : undefined);
+          const keepEmail = clientEmail || '';
+          const keepName = clientName || '';
+          fetchClients();
+          if (keepClientId) {
+            setSelectedClientId(keepClientId);
           }
           setSelectedProjectId('new');
-          setQuickInvoice(prev => ({ 
-            ...prev, 
-            projectName: '', 
-            amount: '', 
-            dueDate: '', 
-            paymentType: 'one_time', 
-            planInterval: 'month' as 'week' | 'month',
+          setQuickInvoice({
+            clientEmail: keepEmail,
+            clientName: keepName,
+            projectName: '',
+            amount: '',
+            dueDate: '',
+            paymentType: 'one_time',
+            planInterval: 'month',
             planEndDate: '',
-            paymentLink: '', 
-            description: '' 
-          }));
+            paymentLink: '',
+            description: '',
+          });
           setInvoiceScreenshots([]);
+          return;
         } else {
           setShowQuickInvoice(false);
           setSelectedClientId('new');
