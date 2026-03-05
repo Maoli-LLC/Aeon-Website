@@ -2183,7 +2183,9 @@ function BillingSection() {
     projectName: '',
     amount: '',
     dueDate: '',
-    paymentType: 'one_time' as 'one_time' | 'monthly',
+    paymentType: 'one_time' as 'one_time' | 'monthly' | 'payment_plan',
+    planInterval: 'month' as 'week' | 'month',
+    planEndDate: '',
     paymentLink: '',
     description: '',
   });
@@ -2445,6 +2447,10 @@ function BillingSection() {
       alert('Please enter an amount first');
       return;
     }
+    if (quickInvoice.paymentType === 'payment_plan' && !quickInvoice.planEndDate) {
+      alert('Please set a plan end date for the payment plan');
+      return;
+    }
     
     setGeneratingPaymentLink(true);
     try {
@@ -2456,6 +2462,8 @@ function BillingSection() {
           projectName,
           amount: quickInvoice.amount,
           paymentType: quickInvoice.paymentType,
+          planInterval: quickInvoice.planInterval,
+          planEndDate: quickInvoice.planEndDate,
           clientEmail,
           clientName,
         }),
@@ -2582,6 +2590,8 @@ function BillingSection() {
             amount: '', 
             dueDate: '', 
             paymentType: 'one_time', 
+            planInterval: 'month' as 'week' | 'month',
+            planEndDate: '',
             paymentLink: '', 
             description: '' 
           }));
@@ -2590,7 +2600,7 @@ function BillingSection() {
           setShowQuickInvoice(false);
           setSelectedClientId('new');
           setSelectedProjectId('new');
-          setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentType: 'one_time', paymentLink: '', description: '' });
+          setQuickInvoice({ clientEmail: '', clientName: '', projectName: '', amount: '', dueDate: '', paymentType: 'one_time', planInterval: 'month', planEndDate: '', paymentLink: '', description: '' });
           setInvoiceScreenshots([]);
         }
         fetchClients();
@@ -2777,13 +2787,52 @@ function BillingSection() {
               <label className="block text-sm text-muted-foreground mb-1">Payment Type</label>
               <select
                 value={quickInvoice.paymentType}
-                onChange={e => setQuickInvoice(prev => ({ ...prev, paymentType: e.target.value as 'one_time' | 'monthly' }))}
+                onChange={e => setQuickInvoice(prev => ({ ...prev, paymentType: e.target.value as 'one_time' | 'monthly' | 'payment_plan' }))}
                 className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
               >
                 <option value="one_time">One-Time Payment</option>
-                <option value="monthly">Monthly Subscription</option>
+                <option value="monthly">Monthly Subscription (ongoing)</option>
+                <option value="payment_plan">Payment Plan (auto-ends on date)</option>
               </select>
             </div>
+            {quickInvoice.paymentType === 'payment_plan' && (
+              <>
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">Billing Interval</label>
+                  <select
+                    value={quickInvoice.planInterval}
+                    onChange={e => setQuickInvoice(prev => ({ ...prev, planInterval: e.target.value as 'week' | 'month' }))}
+                    className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white"
+                  >
+                    <option value="week">Weekly</option>
+                    <option value="month">Monthly</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">Plan End Date *</label>
+                  <input
+                    type="date"
+                    value={quickInvoice.planEndDate}
+                    onChange={e => setQuickInvoice(prev => ({ ...prev, planEndDate: e.target.value }))}
+                    className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white [color-scheme:dark]"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Subscription auto-cancels on this date in Stripe</p>
+                </div>
+              </>
+            )}
+            {quickInvoice.paymentType === 'monthly' && (
+              <div>
+                <label className="block text-sm text-muted-foreground mb-1">End Date (optional)</label>
+                <input
+                  type="date"
+                  value={quickInvoice.planEndDate}
+                  onChange={e => setQuickInvoice(prev => ({ ...prev, planEndDate: e.target.value }))}
+                  className="w-full px-4 py-2 bg-background border border-primary/30 rounded text-white [color-scheme:dark]"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Leave empty for ongoing, or set a date to auto-cancel</p>
+              </div>
+            )}
             <div>
               <label className="block text-sm text-muted-foreground mb-1">Due Date</label>
               <input

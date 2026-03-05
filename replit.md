@@ -30,7 +30,9 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
   - Send payment reminder emails directly from the dashboard
 - **Stripe Integration**: Using live production keys (STRIPE_LIVE_PUBLISHABLE_KEY, STRIPE_LIVE_SECRET_KEY)
   - Auto-creates products and prices in Stripe for each invoice
-  - Generates payment links (one-time or monthly subscription) with redirect to success page
+  - Generates payment links (one-time), monthly subscriptions, or payment plans (weekly/monthly with auto-end date)
+  - Payment plans use Stripe's `cancel_at` to auto-cancel subscriptions on the specified end date
+  - Monthly subscriptions can optionally have an end date for auto-cancellation
   - Webhook handler updates payment status when checkout completes and captures subscription IDs
   - Handles subscription.deleted webhook to auto-cancel in database
 - **Reviews System**: Customer reviews with star ratings

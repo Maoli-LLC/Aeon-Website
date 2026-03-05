@@ -36,10 +36,25 @@ export class WebhookHandlers {
   }
 
   static async handlePaymentSuccess(paymentLinkId: string, session: any): Promise<void> {
-    if (!paymentLinkId) return;
-    
-    const projects = await db.select().from(billingProjects)
-      .where(eq(billingProjects.stripePaymentLinkId, paymentLinkId));
+    let projects: any[] = [];
+
+    if (paymentLinkId) {
+      projects = await db.select().from(billingProjects)
+        .where(eq(billingProjects.stripePaymentLinkId, paymentLinkId));
+    }
+
+    if (projects.length === 0 && session.metadata?.projectId) {
+      const projectId = parseInt(session.metadata.projectId);
+      if (!isNaN(projectId)) {
+        projects = await db.select().from(billingProjects)
+          .where(eq(billingProjects.id, projectId));
+      }
+    }
+
+    if (projects.length === 0) {
+      console.log('Webhook: No matching project found for session', session.id);
+      return;
+    }
     
     for (const project of projects) {
       const updateData: any = { paymentStatus: 'paid', updatedAt: new Date() };

@@ -50,9 +50,7 @@ app.post(
 
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object as any;
-        if (session.payment_link) {
-          await WebhookHandlers.handlePaymentSuccess(session.payment_link, session);
-        }
+        await WebhookHandlers.handlePaymentSuccess(session.payment_link || null, session);
       }
 
       if (event.type === 'customer.subscription.deleted') {
@@ -2168,13 +2166,12 @@ async function main() {
   // Generate Stripe Payment Link for invoice
   app.post("/api/admin/billing/generate-payment-link", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { projectId, projectName, amount, paymentType, clientEmail, clientName } = req.body;
+      const { projectId, projectName, amount, paymentType, planInterval, planEndDate, clientEmail, clientName } = req.body;
       
       if (!projectName || !amount) {
         return res.status(400).json({ message: "Project name and amount are required" });
       }
 
-      // Parse amount to cents (remove $ and convert to cents)
       const amountStr = String(amount).replace(/[$,]/g, '');
       const amountCents = Math.round(parseFloat(amountStr) * 100);
       
@@ -2182,41 +2179,42 @@ async function main() {
         return res.status(400).json({ message: "Invalid amount" });
       }
 
-      const isMonthly = paymentType === 'monthly';
+      const isRecurring = paymentType === 'monthly' || paymentType === 'payment_plan';
+      const interval = (paymentType === 'payment_plan' && planInterval) ? planInterval : 'month';
       const stripe = await getUncachableStripeClient();
 
-      // Note: We don't deactivate old payment links since they might still be paid
-      // We just update the project with the new link info
-
-      // Create a product for this invoice with unique name
       const timestamp = Date.now();
+      const planLabel = paymentType === 'payment_plan' 
+        ? `Payment Plan (${interval})` 
+        : paymentType === 'monthly' ? 'Monthly' : 'One-Time';
+      
       const product = await stripe.products.create({
-        name: `${projectName}${isMonthly ? ' (Monthly)' : ''} - Invoice ${timestamp}`,
-        description: `${isMonthly ? 'Monthly subscription for' : 'Invoice for'} ${projectName}`,
+        name: `${projectName} - ${planLabel} - Invoice ${timestamp}`,
+        description: `${planLabel} payment for ${projectName}`,
         metadata: {
           projectId: projectId ? String(projectId) : '',
           clientEmail: clientEmail || '',
           clientName: clientName || '',
           invoiceTimestamp: String(timestamp),
           paymentType: paymentType || 'one_time',
+          planInterval: interval,
+          planEndDate: planEndDate || '',
         }
       });
 
-      // Create a price for the product (recurring for monthly subscriptions)
       const priceParams: any = {
         product: product.id,
         unit_amount: amountCents,
         currency: 'usd',
       };
       
-      if (isMonthly) {
-        priceParams.recurring = { interval: 'month' };
+      if (isRecurring) {
+        priceParams.recurring = { interval };
       }
       
       const price = await stripe.prices.create(priceParams);
 
-      // Create a payment link
-      const paymentLink = await stripe.paymentLinks.create({
+      const paymentLinkParams: any = {
         line_items: [{ price: price.id, quantity: 1 }],
         metadata: {
           projectId: projectId ? String(projectId) : '',
@@ -2228,9 +2226,59 @@ async function main() {
             url: 'https://www.iamsahlien.com/?payment=success',
           },
         },
-      });
+      };
 
-      // If projectId provided, update the project with Stripe info
+      if (isRecurring && planEndDate) {
+        const endTimestamp = Math.floor(new Date(planEndDate).getTime() / 1000);
+        paymentLinkParams.subscription_data = {
+          metadata: {
+            projectId: projectId ? String(projectId) : '',
+            clientEmail: clientEmail || '',
+            planEndDate: planEndDate,
+          },
+        };
+
+        const checkoutParams: any = {
+          mode: 'subscription',
+          line_items: [{ price: price.id, quantity: 1 }],
+          success_url: 'https://www.iamsahlien.com/?payment=success',
+          cancel_url: 'https://www.iamsahlien.com/?payment=cancelled',
+          subscription_data: {
+            cancel_at: endTimestamp,
+            metadata: {
+              projectId: projectId ? String(projectId) : '',
+              clientEmail: clientEmail || '',
+              planEndDate: planEndDate,
+            },
+          },
+        };
+
+        const session = await stripe.checkout.sessions.create(checkoutParams);
+
+        if (projectId) {
+          await db.update(billingProjects)
+            .set({
+              stripePaymentLink: session.url,
+              stripeProductId: product.id,
+              stripePriceId: price.id,
+              hostingType: paymentType === 'payment_plan' ? `plan-${interval}` : 'monthly',
+              nextPaymentDue: planEndDate ? new Date(planEndDate) : undefined,
+            })
+            .where(eq(billingProjects.id, projectId));
+        }
+
+        return res.json({ 
+          success: true, 
+          paymentLink: session.url,
+          productId: product.id,
+          priceId: price.id,
+          type: 'checkout_session',
+          cancelAt: planEndDate,
+        });
+      }
+
+      const paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+
       if (projectId) {
         await db.update(billingProjects)
           .set({
@@ -2238,6 +2286,7 @@ async function main() {
             stripePaymentLinkId: paymentLink.id,
             stripeProductId: product.id,
             stripePriceId: price.id,
+            hostingType: paymentType === 'monthly' ? 'monthly' : 'one-time',
           })
           .where(eq(billingProjects.id, projectId));
       }
@@ -2248,6 +2297,7 @@ async function main() {
         paymentLinkId: paymentLink.id,
         productId: product.id,
         priceId: price.id,
+        type: 'payment_link',
       });
     } catch (error: any) {
       console.error("Error generating payment link:", error?.message || error);
