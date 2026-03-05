@@ -230,6 +230,32 @@ export const billingLineItems = pgTable("billing_line_items", {
 export type BillingLineItem = typeof billingLineItems.$inferSelect;
 export type InsertBillingLineItem = typeof billingLineItems.$inferInsert;
 
+export const billingInvoices = pgTable("billing_invoices", {
+  id: serial("id").primaryKey(),
+  projectId: integer("project_id").notNull().references(() => billingProjects.id, { onDelete: 'cascade' }),
+  clientId: integer("client_id").notNull().references(() => billingClients.id, { onDelete: 'cascade' }),
+  amount: varchar("amount", { length: 100 }).notNull(),
+  description: text("description"),
+  paymentType: varchar("payment_type", { length: 50 }).default("one_time"),
+  planInterval: varchar("plan_interval", { length: 20 }),
+  planEndDate: timestamp("plan_end_date"),
+  paymentStatus: varchar("payment_status", { length: 50 }).default("pending"),
+  stripePaymentLink: varchar("stripe_payment_link", { length: 500 }),
+  stripePaymentLinkId: varchar("stripe_payment_link_id", { length: 100 }),
+  stripeProductId: varchar("stripe_product_id", { length: 100 }),
+  stripePriceId: varchar("stripe_price_id", { length: 100 }),
+  stripeSubscriptionId: varchar("stripe_subscription_id", { length: 100 }),
+  dueDate: timestamp("due_date"),
+  sentAt: timestamp("sent_at").defaultNow(),
+  paidAt: timestamp("paid_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type BillingInvoice = typeof billingInvoices.$inferSelect;
+export type InsertBillingInvoice = typeof billingInvoices.$inferInsert;
+
 export const reviews = pgTable("reviews", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id", { length: 255 }).notNull(),

@@ -6,7 +6,7 @@ import multer from "multer";
 import { setupAuth, registerAuthRoutes, isAuthenticated } from "./replit_integrations/auth";
 import { registerObjectStorageRoutes, ObjectStorageService, objectStorageClient } from "./replit_integrations/object_storage";
 import { db, pool } from "./db";
-import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems } from "@shared/schema";
+import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems, billingInvoices } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
 import { getUncachableStripeClient, getStripeSync } from "./stripeClient";
@@ -1810,15 +1810,16 @@ async function main() {
       const clients = await db.select().from(billingClients).orderBy(desc(billingClients.createdAt));
       const projects = await db.select().from(billingProjects).orderBy(desc(billingProjects.createdAt));
       const attachments = await db.select().from(billingAttachments).orderBy(desc(billingAttachments.createdAt));
+      const invoices = await db.select().from(billingInvoices).orderBy(desc(billingInvoices.createdAt));
       
-      // Combine data
       const clientsWithProjects = clients.map(client => ({
         ...client,
         projects: projects
           .filter(p => p.clientId === client.id)
           .map(project => ({
             ...project,
-            attachments: attachments.filter(a => a.projectId === project.id)
+            attachments: attachments.filter(a => a.projectId === project.id),
+            invoices: invoices.filter(inv => inv.projectId === project.id),
           }))
       }));
       
@@ -2166,7 +2167,7 @@ async function main() {
   // Generate Stripe Payment Link for invoice
   app.post("/api/admin/billing/generate-payment-link", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { projectId, projectName, amount, paymentType, planInterval, planEndDate, clientEmail, clientName } = req.body;
+      const { projectId, invoiceId, projectName, amount, paymentType, planInterval, planEndDate, clientEmail, clientName } = req.body;
       
       if (!projectName || !amount) {
         return res.status(400).json({ message: "Project name and amount are required" });
@@ -2193,9 +2194,9 @@ async function main() {
         description: `${planLabel} payment for ${projectName}`,
         metadata: {
           projectId: projectId ? String(projectId) : '',
+          invoiceId: invoiceId ? String(invoiceId) : '',
           clientEmail: clientEmail || '',
           clientName: clientName || '',
-          invoiceTimestamp: String(timestamp),
           paymentType: paymentType || 'one_time',
           planInterval: interval,
           planEndDate: planEndDate || '',
@@ -2214,61 +2215,40 @@ async function main() {
       
       const price = await stripe.prices.create(priceParams);
 
-      const paymentLinkParams: any = {
-        line_items: [{ price: price.id, quantity: 1 }],
-        metadata: {
-          projectId: projectId ? String(projectId) : '',
-          clientEmail: clientEmail || '',
-        },
-        after_completion: {
-          type: 'redirect',
-          redirect: {
-            url: 'https://www.iamsahlien.com/?payment=success',
-          },
-        },
+      const metadataObj: any = {
+        projectId: projectId ? String(projectId) : '',
+        invoiceId: invoiceId ? String(invoiceId) : '',
+        clientEmail: clientEmail || '',
       };
 
       if (isRecurring && planEndDate) {
-        const endTimestamp = Math.floor(new Date(planEndDate).getTime() / 1000);
-        paymentLinkParams.subscription_data = {
-          metadata: {
-            projectId: projectId ? String(projectId) : '',
-            clientEmail: clientEmail || '',
-            planEndDate: planEndDate,
-          },
-        };
+        metadataObj.planEndDate = planEndDate;
 
         const checkoutParams: any = {
           mode: 'subscription',
           line_items: [{ price: price.id, quantity: 1 }],
           success_url: 'https://www.iamsahlien.com/?payment=success',
           cancel_url: 'https://www.iamsahlien.com/?payment=cancelled',
-          metadata: {
-            projectId: projectId ? String(projectId) : '',
-            clientEmail: clientEmail || '',
-            planEndDate: planEndDate,
-          },
+          metadata: metadataObj,
           subscription_data: {
-            metadata: {
-              projectId: projectId ? String(projectId) : '',
-              clientEmail: clientEmail || '',
-              planEndDate: planEndDate,
-            },
+            metadata: metadataObj,
           },
         };
 
         const session = await stripe.checkout.sessions.create(checkoutParams);
 
-        if (projectId) {
-          await db.update(billingProjects)
+        if (invoiceId) {
+          await db.update(billingInvoices)
             .set({
               stripePaymentLink: session.url,
               stripeProductId: product.id,
               stripePriceId: price.id,
-              hostingType: paymentType === 'payment_plan' ? `plan-${interval}` : 'monthly',
-              nextPaymentDue: planEndDate ? new Date(planEndDate) : undefined,
+              paymentType: paymentType || 'payment_plan',
+              planInterval: interval,
+              planEndDate: planEndDate ? new Date(planEndDate) : null,
+              updatedAt: new Date(),
             })
-            .where(eq(billingProjects.id, projectId));
+            .where(eq(billingInvoices.id, invoiceId));
         }
 
         return res.json({ 
@@ -2281,18 +2261,27 @@ async function main() {
         });
       }
 
-      const paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+      const paymentLink = await stripe.paymentLinks.create({
+        line_items: [{ price: price.id, quantity: 1 }],
+        metadata: metadataObj,
+        after_completion: {
+          type: 'redirect',
+          redirect: {
+            url: 'https://www.iamsahlien.com/?payment=success',
+          },
+        },
+      });
 
-      if (projectId) {
-        await db.update(billingProjects)
+      if (invoiceId) {
+        await db.update(billingInvoices)
           .set({
             stripePaymentLink: paymentLink.url,
             stripePaymentLinkId: paymentLink.id,
             stripeProductId: product.id,
             stripePriceId: price.id,
-            hostingType: paymentType === 'monthly' ? 'monthly' : 'one-time',
+            updatedAt: new Date(),
           })
-          .where(eq(billingProjects.id, projectId));
+          .where(eq(billingInvoices.id, invoiceId));
       }
 
       res.json({ 
@@ -2316,33 +2305,57 @@ async function main() {
   });
 
   // Cancel Stripe Subscription
+  // Update invoice payment status
+  app.put("/api/admin/billing/invoices/:id/status", isAuthenticated, isOwner, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { paymentStatus } = req.body;
+      await db.update(billingInvoices)
+        .set({ paymentStatus, updatedAt: new Date(), ...(paymentStatus === 'paid' ? { paidAt: new Date() } : {}) })
+        .where(eq(billingInvoices.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating invoice status:", error);
+      res.status(500).json({ message: "Failed to update invoice status" });
+    }
+  });
+
   app.post("/api/admin/billing/cancel-subscription", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { projectId } = req.body;
+      const { projectId, subscriptionId, invoiceId } = req.body;
+
+      const subIdToCancel = subscriptionId;
       
-      if (!projectId) {
-        return res.status(400).json({ message: "Project ID is required" });
+      if (!subIdToCancel && !projectId) {
+        return res.status(400).json({ message: "Subscription ID or Project ID is required" });
+      }
+
+      if (subIdToCancel) {
+        await WebhookHandlers.cancelSubscription(subIdToCancel);
+        
+        if (invoiceId) {
+          await db.update(billingInvoices)
+            .set({ paymentStatus: 'cancelled', stripeSubscriptionId: null, updatedAt: new Date() })
+            .where(eq(billingInvoices.id, invoiceId));
+        }
+
+        if (projectId) {
+          await db.update(billingProjects)
+            .set({ paymentStatus: 'cancelled', projectStatus: 'cancelled', stripeSubscriptionId: null, updatedAt: new Date() })
+            .where(eq(billingProjects.id, projectId));
+        }
+
+        return res.json({ success: true, message: "Subscription cancelled successfully" });
       }
 
       const [project] = await db.select().from(billingProjects).where(eq(billingProjects.id, projectId));
-      
-      if (!project) {
-        return res.status(404).json({ message: "Project not found" });
-      }
-
-      if (!project.stripeSubscriptionId) {
-        return res.status(400).json({ message: "No subscription found for this project" });
+      if (!project || !project.stripeSubscriptionId) {
+        return res.status(400).json({ message: "No subscription found" });
       }
 
       await WebhookHandlers.cancelSubscription(project.stripeSubscriptionId);
-
       await db.update(billingProjects)
-        .set({ 
-          paymentStatus: 'cancelled',
-          projectStatus: 'cancelled',
-          stripeSubscriptionId: null,
-          updatedAt: new Date(),
-        })
+        .set({ paymentStatus: 'cancelled', projectStatus: 'cancelled', stripeSubscriptionId: null, updatedAt: new Date() })
         .where(eq(billingProjects.id, projectId));
 
       res.json({ success: true, message: "Subscription cancelled successfully" });
@@ -2380,24 +2393,14 @@ async function main() {
         }
       }
 
-      // Use existing project or create new one
       let projectId: number;
       let finalProjectName = projectName;
       
       if (existingProjectId) {
         projectId = existingProjectId;
-        // Update project with new amount/payment link if provided
-        await db.update(billingProjects).set({
-          amount: amount,
-          stripePaymentLink: paymentLink || undefined,
-          nextPaymentDue: dueDate ? new Date(dueDate) : undefined,
-        }).where(eq(billingProjects.id, existingProjectId));
-        
-        // Get project name for email
         const proj = await db.select().from(billingProjects).where(eq(billingProjects.id, existingProjectId)).limit(1);
         if (proj.length > 0) finalProjectName = proj[0].projectName;
       } else {
-        // Create new project
         if (!projectName) {
           return res.status(400).json({ message: "Project name is required for new projects" });
         }
@@ -2405,15 +2408,22 @@ async function main() {
           clientId,
           projectName,
           description: description || '',
-          stripePaymentLink: paymentLink || '',
-          amount: amount,
-          hostingType: paymentType === 'payment_plan' ? 'payment-plan' : paymentType === 'monthly' ? 'monthly' : 'one-time',
-          nextPaymentDue: dueDate ? new Date(dueDate) : null,
-          paymentStatus: 'pending',
+          projectStatus: 'active',
           notes: '',
         }).returning();
         projectId = newProject[0].id;
       }
+
+      const newInvoice = await db.insert(billingInvoices).values({
+        projectId,
+        clientId,
+        amount,
+        description: description || '',
+        paymentType: paymentType || 'one_time',
+        stripePaymentLink: paymentLink || '',
+        dueDate: dueDate ? new Date(dueDate) : null,
+        paymentStatus: 'pending',
+      }).returning();
 
       // Save screenshot attachments
       if (screenshotUrls && screenshotUrls.length > 0) {
@@ -2492,7 +2502,7 @@ async function main() {
 
       await sendEmail(clientEmail, `Invoice: ${finalProjectName} - ${amount}`, htmlBody);
       
-      res.json({ success: true, projectId, clientId });
+      res.json({ success: true, projectId, clientId, invoiceId: newInvoice[0].id });
     } catch (error) {
       console.error("Error sending quick invoice:", error);
       res.status(500).json({ message: "Failed to send invoice" });
@@ -2690,7 +2700,32 @@ async function main() {
           notes TEXT,
           created_at TIMESTAMP DEFAULT NOW()
         );
-        
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS billing_invoices (
+          id SERIAL PRIMARY KEY,
+          project_id INTEGER NOT NULL REFERENCES billing_projects(id) ON DELETE CASCADE,
+          client_id INTEGER NOT NULL REFERENCES billing_clients(id) ON DELETE CASCADE,
+          amount VARCHAR(100) NOT NULL,
+          description TEXT,
+          payment_type VARCHAR(50) DEFAULT 'one_time',
+          plan_interval VARCHAR(20),
+          plan_end_date TIMESTAMP,
+          payment_status VARCHAR(50) DEFAULT 'pending',
+          stripe_payment_link VARCHAR(500),
+          stripe_payment_link_id VARCHAR(100),
+          stripe_product_id VARCHAR(100),
+          stripe_price_id VARCHAR(100),
+          stripe_subscription_id VARCHAR(100),
+          due_date TIMESTAMP,
+          sent_at TIMESTAMP DEFAULT NOW(),
+          paid_at TIMESTAMP,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        );
+      `);
+      await pool.query(`
         CREATE TABLE IF NOT EXISTS reviews (
           id SERIAL PRIMARY KEY,
           user_id VARCHAR(255) NOT NULL,

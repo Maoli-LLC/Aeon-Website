@@ -1,6 +1,6 @@
 import { getStripeSync, getUncachableStripeClient } from './stripeClient';
 import { db } from './db';
-import { billingProjects } from '@shared/schema';
+import { billingProjects, billingInvoices } from '@shared/schema';
 import { eq } from 'drizzle-orm';
 import Stripe from 'stripe';
 
@@ -36,24 +36,69 @@ export class WebhookHandlers {
   }
 
   static async handlePaymentSuccess(paymentLinkId: string, session: any): Promise<void> {
-    let projects: any[] = [];
+    let invoiceUpdated = false;
 
-    if (paymentLinkId) {
-      projects = await db.select().from(billingProjects)
-        .where(eq(billingProjects.stripePaymentLinkId, paymentLinkId));
-    }
-
-    if (projects.length === 0 && session.metadata?.projectId) {
-      const projectId = parseInt(session.metadata.projectId);
-      if (!isNaN(projectId)) {
-        projects = await db.select().from(billingProjects)
-          .where(eq(billingProjects.id, projectId));
+    if (session.metadata?.invoiceId) {
+      const invoiceId = parseInt(session.metadata.invoiceId);
+      if (!isNaN(invoiceId)) {
+        const updateData: any = { paymentStatus: 'paid', paidAt: new Date(), updatedAt: new Date() };
+        if (session.subscription) {
+          updateData.stripeSubscriptionId = session.subscription;
+        }
+        await db.update(billingInvoices).set(updateData).where(eq(billingInvoices.id, invoiceId));
+        console.log(`Invoice ${invoiceId} marked as paid${session.subscription ? ' (subscription: ' + session.subscription + ')' : ''}`);
+        invoiceUpdated = true;
       }
     }
 
-    if (projects.length === 0) {
-      console.log('Webhook: No matching project found for session', session.id);
-      return;
+    if (!invoiceUpdated && paymentLinkId) {
+      const invoices = await db.select().from(billingInvoices)
+        .where(eq(billingInvoices.stripePaymentLinkId, paymentLinkId));
+      for (const inv of invoices) {
+        const updateData: any = { paymentStatus: 'paid', paidAt: new Date(), updatedAt: new Date() };
+        if (session.subscription) updateData.stripeSubscriptionId = session.subscription;
+        await db.update(billingInvoices).set(updateData).where(eq(billingInvoices.id, inv.id));
+        console.log(`Invoice ${inv.id} marked as paid via payment link ID`);
+        invoiceUpdated = true;
+      }
+    }
+
+    if (!invoiceUpdated && session.metadata?.projectId) {
+      const projectId = parseInt(session.metadata.projectId);
+      if (!isNaN(projectId)) {
+        const invoices = await db.select().from(billingInvoices)
+          .where(eq(billingInvoices.projectId, projectId));
+        const pendingInv = invoices.filter(inv => inv.paymentStatus === 'pending');
+        if (pendingInv.length > 0) {
+          const inv = pendingInv[0];
+          const updateData: any = { paymentStatus: 'paid', paidAt: new Date(), updatedAt: new Date() };
+          if (session.subscription) updateData.stripeSubscriptionId = session.subscription;
+          await db.update(billingInvoices).set(updateData).where(eq(billingInvoices.id, inv.id));
+          console.log(`Invoice ${inv.id} marked as paid via project match`);
+          invoiceUpdated = true;
+        }
+      }
+    }
+
+    if (!invoiceUpdated) {
+      let projects: any[] = [];
+      if (paymentLinkId) {
+        projects = await db.select().from(billingProjects)
+          .where(eq(billingProjects.stripePaymentLinkId, paymentLinkId));
+      }
+      if (projects.length === 0 && session.metadata?.projectId) {
+        const projectId = parseInt(session.metadata.projectId);
+        if (!isNaN(projectId)) {
+          projects = await db.select().from(billingProjects)
+            .where(eq(billingProjects.id, projectId));
+        }
+      }
+      for (const project of projects) {
+        const updateData: any = { paymentStatus: 'paid', updatedAt: new Date() };
+        if (session.subscription) updateData.stripeSubscriptionId = session.subscription;
+        await db.update(billingProjects).set(updateData).where(eq(billingProjects.id, project.id));
+        console.log(`Legacy project ${project.id}: ${project.projectName} marked as paid`);
+      }
     }
 
     if (session.subscription && session.metadata?.planEndDate) {
@@ -68,27 +113,22 @@ export class WebhookHandlers {
         console.error(`Failed to set cancel_at on subscription: ${err.message}`);
       }
     }
-    
-    for (const project of projects) {
-      const updateData: any = { paymentStatus: 'paid', updatedAt: new Date() };
-      
-      if (session.subscription) {
-        updateData.stripeSubscriptionId = session.subscription;
-      }
-      
-      await db.update(billingProjects)
-        .set(updateData)
-        .where(eq(billingProjects.id, project.id));
-      console.log(`Payment marked as paid for project ${project.id}: ${project.projectName}${session.subscription ? ' (subscription: ' + session.subscription + ')' : ''}`);
-    }
   }
 
   static async handleSubscriptionCancelled(subscriptionId: string): Promise<void> {
     if (!subscriptionId) return;
+
+    const invoices = await db.select().from(billingInvoices)
+      .where(eq(billingInvoices.stripeSubscriptionId, subscriptionId));
+    for (const inv of invoices) {
+      await db.update(billingInvoices)
+        .set({ paymentStatus: 'cancelled', stripeSubscriptionId: null, updatedAt: new Date() })
+        .where(eq(billingInvoices.id, inv.id));
+      console.log(`Subscription cancelled for invoice ${inv.id}`);
+    }
     
     const projects = await db.select().from(billingProjects)
       .where(eq(billingProjects.stripeSubscriptionId, subscriptionId));
-    
     for (const project of projects) {
       await db.update(billingProjects)
         .set({ 
@@ -98,7 +138,7 @@ export class WebhookHandlers {
           updatedAt: new Date() 
         })
         .where(eq(billingProjects.id, project.id));
-      console.log(`Subscription cancelled via webhook for project ${project.id}: ${project.projectName}`);
+      console.log(`Subscription cancelled via webhook for legacy project ${project.id}: ${project.projectName}`);
     }
   }
 

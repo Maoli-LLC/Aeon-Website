@@ -15,11 +15,13 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 - **Billing Management**: 
   - **Quick Invoice**: One-click invoice creation - enter email, project, amount, due date, payment link, and description, then hit send. Creates client and project automatically.
   - **Dashboard Overview**: Summary cards showing total clients, projects, pending, overdue, and paid counts
-  - **Outstanding Bills Table**: Quick view of all pending/overdue payments with one-click status updates
-  - **All Payments Table**: Complete view of all clients and their payment status
+  - **Outstanding Bills Table**: Quick view of all pending/overdue invoices with one-click status updates
+  - **All Projects Table**: Projects shown with their individual invoices nested inside
+  - **All Invoices Table**: Complete view of all invoices across all clients
   - **CSV Export**: Export billing data for accountants with one click
   - Import clients from email subscribers with one click
   - Track multiple projects per client with detailed status tracking
+  - **Multiple invoices per project**: Each project can have many invoices, each with its own amount, payment link, status, and due date
   - Itemized line items for each project (description, quantity, unit price, total)
   - Attach screenshots/documents to projects
   - **Auto-Generated Stripe Payment Links**: Click "Generate Link" to auto-create a Stripe payment link for any invoice

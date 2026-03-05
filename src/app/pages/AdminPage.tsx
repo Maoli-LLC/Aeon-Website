@@ -2304,6 +2304,62 @@ function BillingSection() {
     fetchClients();
   };
 
+  const updateInvoiceStatus = async (invoiceId: number, status: string) => {
+    await fetch(`/api/admin/billing/invoices/${invoiceId}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentStatus: status }),
+    });
+    fetchClients();
+  };
+
+  const cancelInvoiceSubscription = async (invoiceId: number, subscriptionId: string, projectName: string) => {
+    if (!confirm(`Cancel subscription for "${projectName}"? This will stop future charges in Stripe.`)) return;
+    setCancellingSubscription(invoiceId);
+    try {
+      const res = await fetch('/api/admin/billing/cancel-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscriptionId, invoiceId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Subscription cancelled successfully');
+        fetchClients();
+      } else {
+        alert(`Failed to cancel subscription: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error: any) {
+      alert(`Failed to cancel subscription: ${error?.message || 'Network error'}`);
+    }
+    setCancellingSubscription(null);
+  };
+
+  const sendPaymentReminder = async (client: any, invoice: any) => {
+    if (!invoice.stripePaymentLink) {
+      alert('No payment link on this invoice');
+      return;
+    }
+    setSendingPayment(invoice.id);
+    try {
+      await fetch('/api/admin/billing/send-payment-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientEmail: client.email,
+          clientName: client.name,
+          projectName: invoice.projectName || 'Invoice',
+          stripePaymentLink: invoice.stripePaymentLink,
+          amount: invoice.amount,
+        }),
+      });
+      alert('Payment reminder sent!');
+    } catch {
+      alert('Failed to send payment reminder');
+    }
+    setSendingPayment(null);
+  };
+
   const sendPaymentLink = async (client: BillingClient, project: BillingProject) => {
     if (!project.stripePaymentLink) {
       alert('Please add a Stripe payment link first');
@@ -2620,26 +2676,25 @@ function BillingSection() {
     setSendingQuickInvoice(false);
   };
 
-  // Calculate summary stats
+  // Calculate summary stats from invoices
   const allProjects = clients.flatMap(c => c.projects.map(p => ({ ...p, clientName: c.name, clientEmail: c.email })));
-  // Invoiced projects = projects where an invoice was sent (has amount or payment link)
-  const invoicedProjects = allProjects.filter(p => p.amount || p.stripePaymentLink);
-  const pendingProjects = invoicedProjects.filter(p => p.paymentStatus === 'pending');
-  const overdueProjects = invoicedProjects.filter(p => p.paymentStatus === 'overdue');
-  const paidProjects = invoicedProjects.filter(p => p.paymentStatus === 'paid');
+  const allInvoices = clients.flatMap(c => c.projects.flatMap(p => (p.invoices || []).map((inv: any) => ({ ...inv, projectName: p.projectName, clientName: c.name, clientEmail: c.email, projectId: p.id }))));
+  const pendingInvoices = allInvoices.filter((inv: any) => inv.paymentStatus === 'pending');
+  const overdueInvoices = allInvoices.filter((inv: any) => inv.paymentStatus === 'overdue');
+  const paidInvoices = allInvoices.filter((inv: any) => inv.paymentStatus === 'paid');
 
   // Export to CSV
   const exportToCSV = () => {
-    const headers = ['Client Name', 'Client Email', 'Project', 'Amount', 'Status', 'Hosting Type', 'Next Payment Due', 'Notes'];
-    const rows = allProjects.map(p => [
-      p.clientName,
-      p.clientEmail,
-      p.projectName,
-      p.amount || '',
-      p.paymentStatus || 'pending',
-      p.hostingType || '',
-      p.nextPaymentDue ? formatDate(p.nextPaymentDue, 'MMM d, yyyy') : '',
-      (p.notes || '').replace(/,/g, ';')
+    const headers = ['Client Name', 'Client Email', 'Project', 'Amount', 'Type', 'Status', 'Due Date', 'Sent At'];
+    const rows = allInvoices.map((inv: any) => [
+      inv.clientName,
+      inv.clientEmail,
+      inv.projectName,
+      inv.amount || '',
+      inv.paymentType || 'one_time',
+      inv.paymentStatus || 'pending',
+      inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '',
+      inv.sentAt ? formatDate(inv.sentAt, 'MMM d, yyyy') : '',
     ]);
     
     const csvContent = [headers, ...rows].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -2941,21 +2996,21 @@ function BillingSection() {
           <p className="text-muted-foreground text-sm">Total Projects</p>
         </div>
         <div className="bg-card border border-yellow-500/30 rounded-lg p-4 text-center">
-          <p className="text-3xl font-bold text-yellow-500">{pendingProjects.length}</p>
+          <p className="text-3xl font-bold text-yellow-500">{pendingInvoices.length}</p>
           <p className="text-muted-foreground text-sm">Pending</p>
         </div>
         <div className="bg-card border border-red-500/30 rounded-lg p-4 text-center">
-          <p className="text-3xl font-bold text-red-500">{overdueProjects.length}</p>
+          <p className="text-3xl font-bold text-red-500">{overdueInvoices.length}</p>
           <p className="text-muted-foreground text-sm">Overdue</p>
         </div>
         <div className="bg-card border border-green-500/30 rounded-lg p-4 text-center">
-          <p className="text-3xl font-bold text-green-500">{paidProjects.length}</p>
+          <p className="text-3xl font-bold text-green-500">{paidInvoices.length}</p>
           <p className="text-muted-foreground text-sm">Paid</p>
         </div>
       </div>
 
-      {/* Quick Overview Table - Outstanding Bills */}
-      {(pendingProjects.length > 0 || overdueProjects.length > 0) && (
+      {/* Outstanding Bills - Pending/Overdue Invoices */}
+      {(pendingInvoices.length > 0 || overdueInvoices.length > 0) && (
         <div className="bg-card border border-primary/20 rounded-lg p-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>Outstanding Bills</h3>
@@ -2963,7 +3018,7 @@ function BillingSection() {
               onClick={exportToCSV}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center gap-2"
             >
-              📥 Export CSV
+              Export CSV
             </button>
           </div>
           <div className="overflow-x-auto">
@@ -2973,25 +3028,27 @@ function BillingSection() {
                   <th className="text-left p-2 text-primary">Client</th>
                   <th className="text-left p-2 text-primary">Project</th>
                   <th className="text-left p-2 text-primary">Amount</th>
+                  <th className="text-left p-2 text-primary">Type</th>
                   <th className="text-left p-2 text-primary">Status</th>
                   <th className="text-left p-2 text-primary">Due Date</th>
                   <th className="text-left p-2 text-primary">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {[...overdueProjects, ...pendingProjects].map(project => (
-                  <tr key={project.id} className="border-b border-primary/10 hover:bg-primary/5">
-                    <td className="p-2 text-white">{project.clientName}</td>
-                    <td className="p-2 text-white">{project.projectName}</td>
-                    <td className="p-2 text-white font-medium">{project.amount || '-'}</td>
+                {[...overdueInvoices, ...pendingInvoices].map((inv: any) => (
+                  <tr key={`inv-${inv.id}`} className="border-b border-primary/10 hover:bg-primary/5">
+                    <td className="p-2 text-white">{inv.clientName}</td>
+                    <td className="p-2 text-white">{inv.projectName}</td>
+                    <td className="p-2 text-white font-medium">{inv.amount || '-'}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType || 'one_time'}</td>
                     <td className="p-2">
                       <select
-                        value={project.paymentStatus || 'pending'}
-                        onChange={(e) => updatePaymentStatus(project.id, e.target.value)}
+                        value={inv.paymentStatus || 'pending'}
+                        onChange={(e) => updateInvoiceStatus(inv.id, e.target.value)}
                         className={`px-2 py-1 rounded text-xs font-medium ${
-                          project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
-                          project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
-                          project.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
+                          inv.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
+                          inv.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                          inv.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
                           'bg-yellow-500/20 text-yellow-400'
                         }`}
                       >
@@ -3002,38 +3059,30 @@ function BillingSection() {
                       </select>
                     </td>
                     <td className="p-2 text-muted-foreground">
-                      {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
+                      {inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}
                     </td>
                     <td className="p-2 flex gap-2">
-                      {project.stripePaymentLink && (
+                      {inv.stripePaymentLink && (
                         <button
                           onClick={() => {
-                            const client = clients.find(c => c.projects.some(p => p.id === project.id));
-                            if (client) sendPaymentLink(client, project);
+                            const client = clients.find(c => c.email === inv.clientEmail);
+                            if (client) sendPaymentReminder(client, inv);
                           }}
-                          disabled={sendingPayment === project.id}
+                          disabled={sendingPayment === inv.id}
                           className="px-2 py-1 text-xs bg-primary text-black rounded hover:bg-primary/90 disabled:opacity-50"
                         >
-                          {sendingPayment === project.id ? 'Sending...' : 'Send Reminder'}
+                          {sendingPayment === inv.id ? 'Sending...' : 'Send Reminder'}
                         </button>
                       )}
-                      {project.stripeSubscriptionId && (
+                      {inv.stripeSubscriptionId && (
                         <button
-                          onClick={() => cancelSubscription(project.id, project.projectName)}
-                          disabled={cancellingSubscription === project.id}
+                          onClick={() => cancelInvoiceSubscription(inv.id, inv.stripeSubscriptionId, inv.projectName)}
+                          disabled={cancellingSubscription === inv.id}
                           className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
                         >
-                          {cancellingSubscription === project.id ? 'Cancelling...' : 'Cancel Sub'}
+                          {cancellingSubscription === inv.id ? 'Cancelling...' : 'Cancel Sub'}
                         </button>
                       )}
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this project?')) deleteProject(project.id);
-                        }}
-                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
                     </td>
                   </tr>
                 ))}
@@ -3043,54 +3092,93 @@ function BillingSection() {
         </div>
       )}
 
-      {/* All Projects Table */}
+      {/* All Projects with their Invoices */}
       {allProjects.length > 0 && (
         <div className="bg-card border border-blue-500/20 rounded-lg p-4">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-xl text-blue-400" style={{ fontFamily: "'Cinzel', serif" }}>All Projects</h3>
-            <span className="text-muted-foreground text-sm">{allProjects.length} total</span>
+            <span className="text-muted-foreground text-sm">{allProjects.length} projects, {allInvoices.length} invoices</span>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-blue-500/20">
-                  <th className="text-left p-2 text-blue-400">Client</th>
-                  <th className="text-left p-2 text-blue-400">Project</th>
-                  <th className="text-left p-2 text-blue-400">Type</th>
-                  <th className="text-left p-2 text-blue-400">Status</th>
-                  <th className="text-left p-2 text-blue-400">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allProjects.map(project => (
-                  <tr key={project.id} className="border-b border-blue-500/10 hover:bg-blue-500/5">
-                    <td className="p-2 text-white">{project.clientName}</td>
-                    <td className="p-2 text-white">{project.projectName}</td>
-                    <td className="p-2 text-muted-foreground">{project.hostingType || '-'}</td>
-                    <td className="p-2 text-muted-foreground">{project.projectStatus || 'active'}</td>
-                    <td className="p-2">
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this project?')) deleteProject(project.id);
-                        }}
-                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-4">
+            {allProjects.map(project => (
+              <div key={project.id} className="border border-blue-500/10 rounded-lg p-3">
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <span className="text-white font-medium">{project.projectName}</span>
+                    <span className="text-muted-foreground text-sm ml-2">({project.clientName})</span>
+                  </div>
+                  <button
+                    onClick={() => { if (confirm('Delete this project and all its invoices?')) deleteProject(project.id); }}
+                    className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
+                {(project as any).invoices && (project as any).invoices.length > 0 ? (
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-blue-500/10">
+                        <th className="text-left p-1 text-blue-400 text-xs">Amount</th>
+                        <th className="text-left p-1 text-blue-400 text-xs">Type</th>
+                        <th className="text-left p-1 text-blue-400 text-xs">Status</th>
+                        <th className="text-left p-1 text-blue-400 text-xs">Sent</th>
+                        <th className="text-left p-1 text-blue-400 text-xs">Due</th>
+                        <th className="text-left p-1 text-blue-400 text-xs">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(project as any).invoices.map((inv: any) => (
+                        <tr key={inv.id} className="border-b border-blue-500/5">
+                          <td className="p-1 text-white">{inv.amount}</td>
+                          <td className="p-1 text-muted-foreground text-xs">{inv.paymentType || 'one_time'}</td>
+                          <td className="p-1">
+                            <select
+                              value={inv.paymentStatus || 'pending'}
+                              onChange={(e) => updateInvoiceStatus(inv.id, e.target.value)}
+                              className={`px-2 py-0.5 rounded text-xs ${
+                                inv.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
+                                inv.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                                inv.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
+                                'bg-yellow-500/20 text-yellow-400'
+                              }`}
+                            >
+                              <option value="pending">Pending</option>
+                              <option value="paid">Paid</option>
+                              <option value="overdue">Overdue</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </td>
+                          <td className="p-1 text-muted-foreground text-xs">{inv.sentAt ? formatDate(inv.sentAt, 'MMM d') : '-'}</td>
+                          <td className="p-1 text-muted-foreground text-xs">{inv.dueDate ? formatDate(inv.dueDate, 'MMM d') : '-'}</td>
+                          <td className="p-1">
+                            {inv.stripeSubscriptionId && inv.paymentStatus !== 'cancelled' && (
+                              <button
+                                onClick={() => cancelInvoiceSubscription(inv.id, inv.stripeSubscriptionId, project.projectName)}
+                                disabled={cancellingSubscription === inv.id}
+                                className="px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                              >
+                                Cancel Sub
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <p className="text-muted-foreground text-xs">No invoices yet</p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* All Payments Table - Only shows invoiced projects */}
-      {invoicedProjects.length > 0 && (
+      {/* All Invoices Table */}
+      {allInvoices.length > 0 && (
         <div className="bg-card border border-primary/20 rounded-lg p-4">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>All Payments (Invoiced)</h3>
+            <h3 className="text-xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>All Invoices</h3>
             <button
               onClick={exportToCSV}
               className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10 flex items-center gap-2"
@@ -3103,55 +3191,33 @@ function BillingSection() {
               <thead>
                 <tr className="border-b border-primary/20">
                   <th className="text-left p-2 text-primary">Client</th>
-                  <th className="text-left p-2 text-primary">Email</th>
                   <th className="text-left p-2 text-primary">Project</th>
                   <th className="text-left p-2 text-primary">Amount</th>
                   <th className="text-left p-2 text-primary">Type</th>
                   <th className="text-left p-2 text-primary">Status</th>
                   <th className="text-left p-2 text-primary">Due Date</th>
-                  <th className="text-left p-2 text-primary">Actions</th>
+                  <th className="text-left p-2 text-primary">Sent</th>
                 </tr>
               </thead>
               <tbody>
-                {invoicedProjects.map(project => (
-                  <tr key={project.id} className="border-b border-primary/10 hover:bg-primary/5">
-                    <td className="p-2 text-white">{project.clientName}</td>
-                    <td className="p-2 text-muted-foreground text-xs">{project.clientEmail}</td>
-                    <td className="p-2 text-white">{project.projectName}</td>
-                    <td className="p-2 text-white font-medium">{project.amount || '-'}</td>
-                    <td className="p-2 text-muted-foreground">{project.hostingType || '-'}</td>
+                {allInvoices.map((inv: any) => (
+                  <tr key={`all-inv-${inv.id}`} className="border-b border-primary/10 hover:bg-primary/5">
+                    <td className="p-2 text-white">{inv.clientName}</td>
+                    <td className="p-2 text-white">{inv.projectName}</td>
+                    <td className="p-2 text-white font-medium">{inv.amount}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType || 'one_time'}</td>
                     <td className="p-2">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        project.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
-                        project.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
-                        project.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
+                        inv.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
+                        inv.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                        inv.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
                         'bg-yellow-500/20 text-yellow-400'
                       }`}>
-                        {project.paymentStatus || 'pending'}
+                        {inv.paymentStatus || 'pending'}
                       </span>
                     </td>
-                    <td className="p-2 text-muted-foreground">
-                      {project.nextPaymentDue ? formatDate(project.nextPaymentDue, 'MMM d, yyyy') : '-'}
-                    </td>
-                    <td className="p-2 flex gap-2">
-                      {project.stripeSubscriptionId && project.paymentStatus !== 'cancelled' && (
-                        <button
-                          onClick={() => cancelSubscription(project.id, project.projectName)}
-                          disabled={cancellingSubscription === project.id}
-                          className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
-                        >
-                          {cancellingSubscription === project.id ? 'Cancelling...' : 'Cancel Sub'}
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          if (confirm('Delete this project?')) deleteProject(project.id);
-                        }}
-                        className="px-2 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700"
-                      >
-                        Delete
-                      </button>
-                    </td>
+                    <td className="p-2 text-muted-foreground">{inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{inv.sentAt ? formatDate(inv.sentAt, 'MMM d, yyyy') : '-'}</td>
                   </tr>
                 ))}
               </tbody>
