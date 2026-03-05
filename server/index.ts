@@ -2243,8 +2243,12 @@ async function main() {
           line_items: [{ price: price.id, quantity: 1 }],
           success_url: 'https://www.iamsahlien.com/?payment=success',
           cancel_url: 'https://www.iamsahlien.com/?payment=cancelled',
+          metadata: {
+            projectId: projectId ? String(projectId) : '',
+            clientEmail: clientEmail || '',
+            planEndDate: planEndDate,
+          },
           subscription_data: {
-            cancel_at: endTimestamp,
             metadata: {
               projectId: projectId ? String(projectId) : '',
               clientEmail: clientEmail || '',
@@ -2403,7 +2407,7 @@ async function main() {
           description: description || '',
           stripePaymentLink: paymentLink || '',
           amount: amount,
-          hostingType: paymentType === 'monthly' ? 'monthly' : 'one-time',
+          hostingType: paymentType === 'payment_plan' ? 'payment-plan' : paymentType === 'monthly' ? 'monthly' : 'one-time',
           nextPaymentDue: dueDate ? new Date(dueDate) : null,
           paymentStatus: 'pending',
           notes: '',

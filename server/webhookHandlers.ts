@@ -55,6 +55,19 @@ export class WebhookHandlers {
       console.log('Webhook: No matching project found for session', session.id);
       return;
     }
+
+    if (session.subscription && session.metadata?.planEndDate) {
+      try {
+        const stripe = await getUncachableStripeClient();
+        const endTimestamp = Math.floor(new Date(session.metadata.planEndDate).getTime() / 1000);
+        await stripe.subscriptions.update(session.subscription, {
+          cancel_at: endTimestamp,
+        });
+        console.log(`Set cancel_at on subscription ${session.subscription} to ${session.metadata.planEndDate}`);
+      } catch (err: any) {
+        console.error(`Failed to set cancel_at on subscription: ${err.message}`);
+      }
+    }
     
     for (const project of projects) {
       const updateData: any = { paymentStatus: 'paid', updatedAt: new Date() };
