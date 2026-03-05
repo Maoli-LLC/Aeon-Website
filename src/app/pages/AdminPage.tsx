@@ -3068,8 +3068,8 @@ function BillingSection() {
                   <tr key={`inv-${inv.id}`} className="border-b border-primary/10 hover:bg-primary/5">
                     <td className="p-2 text-white">{inv.clientName}</td>
                     <td className="p-2 text-white">{inv.projectName}</td>
-                    <td className="p-2 text-white font-medium">{inv.amount || '-'}</td>
-                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType || 'one_time'}</td>
+                    <td className="p-2 text-white font-medium">${inv.amount || '-'}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType === 'payment_plan' ? 'Payment Plan' : inv.paymentType === 'monthly' ? 'Monthly' : inv.paymentType === 'one_time' ? 'One-Time' : inv.paymentType || 'One-Time'}</td>
                     <td className="p-2">
                       <select
                         value={inv.paymentStatus || 'pending'}
@@ -3158,8 +3158,8 @@ function BillingSection() {
                     <tbody>
                       {(project as any).invoices.map((inv: any) => (
                         <tr key={inv.id} className="border-b border-blue-500/5">
-                          <td className="p-1 text-white">{inv.amount}</td>
-                          <td className="p-1 text-muted-foreground text-xs">{inv.paymentType || 'one_time'}</td>
+                          <td className="p-1 text-white">${inv.amount}</td>
+                          <td className="p-1 text-muted-foreground text-xs">{inv.paymentType === 'payment_plan' ? 'Payment Plan' : inv.paymentType === 'monthly' ? 'Monthly' : inv.paymentType === 'one_time' ? 'One-Time' : inv.paymentType || 'One-Time'}</td>
                           <td className="p-1">
                             <select
                               value={inv.paymentStatus || 'pending'}
@@ -3220,21 +3220,23 @@ function BillingSection() {
               <thead>
                 <tr className="border-b border-primary/20">
                   <th className="text-left p-2 text-primary">Client</th>
+                  <th className="text-left p-2 text-primary">Email</th>
                   <th className="text-left p-2 text-primary">Project</th>
                   <th className="text-left p-2 text-primary">Amount</th>
                   <th className="text-left p-2 text-primary">Type</th>
                   <th className="text-left p-2 text-primary">Status</th>
                   <th className="text-left p-2 text-primary">Due Date</th>
-                  <th className="text-left p-2 text-primary">Sent</th>
+                  <th className="text-left p-2 text-primary">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {allInvoices.map((inv: any) => (
                   <tr key={`all-inv-${inv.id}`} className="border-b border-primary/10 hover:bg-primary/5">
                     <td className="p-2 text-white">{inv.clientName}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{inv.clientEmail}</td>
                     <td className="p-2 text-white">{inv.projectName}</td>
-                    <td className="p-2 text-white font-medium">{inv.amount}</td>
-                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType || 'one_time'}</td>
+                    <td className="p-2 text-white font-medium">${inv.amount}</td>
+                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType === 'payment_plan' ? 'Payment Plan' : inv.paymentType === 'monthly' ? 'Monthly' : inv.paymentType === 'one_time' ? 'One-Time' : inv.paymentType || 'One-Time'}</td>
                     <td className="p-2">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         inv.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
@@ -3246,7 +3248,32 @@ function BillingSection() {
                       </span>
                     </td>
                     <td className="p-2 text-muted-foreground">{inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}</td>
-                    <td className="p-2 text-muted-foreground text-xs">{inv.sentAt ? formatDate(inv.sentAt, 'MMM d, yyyy') : '-'}</td>
+                    <td className="p-2 flex gap-1">
+                      {inv.stripeSubscriptionId && inv.paymentStatus !== 'cancelled' && (
+                        <button
+                          onClick={() => cancelInvoiceSubscription(inv.id, inv.stripeSubscriptionId, inv.projectName)}
+                          disabled={cancellingSubscription === inv.id}
+                          className="px-2 py-0.5 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+                        >
+                          Cancel Sub
+                        </button>
+                      )}
+                      <select
+                        value={inv.paymentStatus || 'pending'}
+                        onChange={(e) => updateInvoiceStatus(inv.id, e.target.value)}
+                        className={`px-2 py-0.5 rounded text-xs ${
+                          inv.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
+                          inv.paymentStatus === 'overdue' ? 'bg-red-500/20 text-red-400' :
+                          inv.paymentStatus === 'cancelled' ? 'bg-gray-500/20 text-gray-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="paid">Paid</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </td>
                   </tr>
                 ))}
               </tbody>
