@@ -3059,7 +3059,7 @@ function BillingSection() {
                   <th className="text-left p-2 text-primary">Amount</th>
                   <th className="text-left p-2 text-primary">Type</th>
                   <th className="text-left p-2 text-primary">Status</th>
-                  <th className="text-left p-2 text-primary">Due Date</th>
+                  <th className="text-left p-2 text-primary">Due / Plan Ends</th>
                   <th className="text-left p-2 text-primary">Actions</th>
                 </tr>
               </thead>
@@ -3088,7 +3088,9 @@ function BillingSection() {
                       </select>
                     </td>
                     <td className="p-2 text-muted-foreground">
-                      {inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}
+                      {inv.planEndDate && inv.paymentType === 'payment_plan'
+                        ? <span className="text-orange-400">Ends {formatDate(inv.planEndDate, 'MMM d, yyyy')}</span>
+                        : inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}
                     </td>
                     <td className="p-2 flex gap-2">
                       {inv.stripePaymentLink && (
@@ -3151,7 +3153,7 @@ function BillingSection() {
                         <th className="text-left p-1 text-blue-400 text-xs">Type</th>
                         <th className="text-left p-1 text-blue-400 text-xs">Status</th>
                         <th className="text-left p-1 text-blue-400 text-xs">Sent</th>
-                        <th className="text-left p-1 text-blue-400 text-xs">Due</th>
+                        <th className="text-left p-1 text-blue-400 text-xs">Due / Plan Ends</th>
                         <th className="text-left p-1 text-blue-400 text-xs">Actions</th>
                       </tr>
                     </thead>
@@ -3178,7 +3180,11 @@ function BillingSection() {
                             </select>
                           </td>
                           <td className="p-1 text-muted-foreground text-xs">{inv.sentAt ? formatDate(inv.sentAt, 'MMM d') : '-'}</td>
-                          <td className="p-1 text-muted-foreground text-xs">{inv.dueDate ? formatDate(inv.dueDate, 'MMM d') : '-'}</td>
+                          <td className="p-1 text-muted-foreground text-xs">
+                            {inv.planEndDate && inv.paymentType === 'payment_plan' 
+                              ? <span className="text-orange-400">Ends {formatDate(inv.planEndDate, 'MMM d, yyyy')}</span>
+                              : inv.dueDate ? formatDate(inv.dueDate, 'MMM d') : '-'}
+                          </td>
                           <td className="p-1">
                             {inv.stripeSubscriptionId && inv.paymentStatus !== 'cancelled' && (
                               <button
@@ -3225,7 +3231,7 @@ function BillingSection() {
                   <th className="text-left p-2 text-primary">Amount</th>
                   <th className="text-left p-2 text-primary">Type</th>
                   <th className="text-left p-2 text-primary">Status</th>
-                  <th className="text-left p-2 text-primary">Due Date</th>
+                  <th className="text-left p-2 text-primary">Due / Plan Ends</th>
                   <th className="text-left p-2 text-primary">Actions</th>
                 </tr>
               </thead>
@@ -3247,7 +3253,11 @@ function BillingSection() {
                         {inv.paymentStatus || 'pending'}
                       </span>
                     </td>
-                    <td className="p-2 text-muted-foreground">{inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}</td>
+                    <td className="p-2 text-muted-foreground">
+                      {inv.planEndDate && inv.paymentType === 'payment_plan'
+                        ? <span className="text-orange-400">Ends {formatDate(inv.planEndDate, 'MMM d, yyyy')}</span>
+                        : inv.dueDate ? formatDate(inv.dueDate, 'MMM d, yyyy') : '-'}
+                    </td>
                     <td className="p-2 flex gap-1">
                       {inv.stripeSubscriptionId && inv.paymentStatus !== 'cancelled' && (
                         <button

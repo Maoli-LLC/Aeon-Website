@@ -2380,23 +2380,25 @@ async function main() {
       if (isRecurring && planEndDate) {
         metadataObj.planEndDate = planEndDate;
 
-        const checkoutParams: any = {
-          mode: 'subscription',
+        const paymentLinkObj = await stripe.paymentLinks.create({
           line_items: [{ price: price.id, quantity: 1 }],
-          success_url: 'https://www.iamsahlien.com/?payment=success',
-          cancel_url: 'https://www.iamsahlien.com/?payment=cancelled',
           metadata: metadataObj,
           subscription_data: {
             metadata: metadataObj,
           },
-        };
-
-        const session = await stripe.checkout.sessions.create(checkoutParams);
+          after_completion: {
+            type: 'redirect',
+            redirect: {
+              url: 'https://www.iamsahlien.com/?payment=success',
+            },
+          },
+        });
 
         if (invoiceId) {
           await db.update(billingInvoices)
             .set({
-              stripePaymentLink: session.url,
+              stripePaymentLink: paymentLinkObj.url,
+              stripePaymentLinkId: paymentLinkObj.id,
               stripeProductId: product.id,
               stripePriceId: price.id,
               paymentType: paymentType || 'payment_plan',
@@ -2409,10 +2411,10 @@ async function main() {
 
         return res.json({ 
           success: true, 
-          paymentLink: session.url,
+          paymentLink: paymentLinkObj.url,
           productId: product.id,
           priceId: price.id,
-          type: 'checkout_session',
+          type: 'payment_link',
           cancelAt: planEndDate,
         });
       }

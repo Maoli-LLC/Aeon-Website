@@ -101,16 +101,28 @@ export class WebhookHandlers {
       }
     }
 
-    if (session.subscription && session.metadata?.planEndDate) {
-      try {
-        const stripe = await getUncachableStripeClient();
-        const endTimestamp = Math.floor(new Date(session.metadata.planEndDate).getTime() / 1000);
-        await stripe.subscriptions.update(session.subscription, {
-          cancel_at: endTimestamp,
-        });
-        console.log(`Set cancel_at on subscription ${session.subscription} to ${session.metadata.planEndDate}`);
-      } catch (err: any) {
-        console.error(`Failed to set cancel_at on subscription: ${err.message}`);
+    if (session.subscription) {
+      let planEndDate = session.metadata?.planEndDate;
+      
+      if (!planEndDate) {
+        try {
+          const stripe = await getUncachableStripeClient();
+          const sub = await stripe.subscriptions.retrieve(session.subscription as string);
+          planEndDate = (sub.metadata as any)?.planEndDate;
+        } catch {}
+      }
+
+      if (planEndDate) {
+        try {
+          const stripe = await getUncachableStripeClient();
+          const endTimestamp = Math.floor(new Date(planEndDate).getTime() / 1000);
+          await stripe.subscriptions.update(session.subscription as string, {
+            cancel_at: endTimestamp,
+          });
+          console.log(`Set cancel_at on subscription ${session.subscription} to ${planEndDate}`);
+        } catch (err: any) {
+          console.error(`Failed to set cancel_at on subscription: ${err.message}`);
+        }
       }
     }
   }
