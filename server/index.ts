@@ -2057,13 +2057,34 @@ async function main() {
         .where(eq(billingInvoices.stripeSubscriptionId, sub.id));
       
       if (existingInvoices.length > 0) {
+        let latestInvoiceStatus = 'paid';
+        let nextDue: Date | null = null;
+        try {
+          const stripeInvoices = await stripe.invoices.list({ subscription: sub.id, limit: 1 });
+          if (stripeInvoices.data.length > 0) {
+            const latest = stripeInvoices.data[0];
+            latestInvoiceStatus = latest.status === 'paid' ? 'paid' : 'pending';
+            if (latest.period_end) {
+              nextDue = new Date(latest.period_end * 1000);
+            }
+          }
+        } catch {}
+
         for (const inv of existingInvoices) {
-          if (inv.paymentStatus !== 'paid') {
-            await db.update(billingInvoices)
-              .set({ paymentStatus: 'paid', paidAt: new Date(), updatedAt: new Date() })
-              .where(eq(billingInvoices.id, inv.id));
+          const updateData: any = { updatedAt: new Date() };
+          if (latestInvoiceStatus === 'paid' && inv.paymentStatus !== 'paid') {
+            updateData.paymentStatus = 'paid';
+            updateData.paidAt = new Date();
+            synced++;
+          } else if (latestInvoiceStatus !== 'paid' && inv.paymentStatus === 'paid') {
+            updateData.paymentStatus = 'pending';
+            updateData.paidAt = null;
             synced++;
           }
+          if (nextDue) {
+            updateData.dueDate = nextDue;
+          }
+          await db.update(billingInvoices).set(updateData).where(eq(billingInvoices.id, inv.id));
         }
         continue;
       }
