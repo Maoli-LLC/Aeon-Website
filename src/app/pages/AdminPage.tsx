@@ -2195,6 +2195,7 @@ function BillingSection() {
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<number | null>(null);
   const [syncingStripe, setSyncingStripe] = useState(false);
+  const [lastCreatedInvoiceId, setLastCreatedInvoiceId] = useState<number | null>(null);
 
   // Get projects for selected client
   const selectedClientProjects = selectedClientId !== 'new' 
@@ -2533,6 +2534,7 @@ function BillingSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectId,
+          invoiceId: lastCreatedInvoiceId,
           projectName,
           amount: quickInvoice.amount,
           paymentType: quickInvoice.paymentType,
@@ -2652,6 +2654,7 @@ function BillingSection() {
       
       if (res.ok) {
         const responseData = await res.json();
+        if (responseData.invoiceId) setLastCreatedInvoiceId(responseData.invoiceId);
         const sendAnother = confirm('Invoice sent successfully! Would you like to send another invoice to this client?');
         if (sendAnother) {
           const keepClientId = responseData.clientId || (selectedClientId !== 'new' ? selectedClientId : undefined);
@@ -3069,7 +3072,12 @@ function BillingSection() {
                     <td className="p-2 text-white">{inv.clientName}</td>
                     <td className="p-2 text-white">{inv.projectName}</td>
                     <td className="p-2 text-white font-medium">${inv.amount || '-'}</td>
-                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType === 'payment_plan' ? 'Payment Plan' : inv.paymentType === 'monthly' ? 'Monthly' : inv.paymentType === 'one_time' ? 'One-Time' : inv.paymentType || 'One-Time'}</td>
+                    <td className="p-2 text-xs">
+                      {inv.paymentType === 'payment_plan'
+                        ? <span className="text-purple-400">{`$${inv.amount}/${inv.planInterval || 'mo'}`}{inv.planEndDate ? ` → ends ${formatDate(inv.planEndDate, 'MMM yyyy')}` : ''}</span>
+                        : inv.paymentType === 'monthly' ? <span className="text-blue-400">Monthly</span>
+                        : 'One-Time'}
+                    </td>
                     <td className="p-2">
                       <select
                         value={inv.paymentStatus || 'pending'}
@@ -3161,7 +3169,12 @@ function BillingSection() {
                       {(project as any).invoices.map((inv: any) => (
                         <tr key={inv.id} className="border-b border-blue-500/5">
                           <td className="p-1 text-white">${inv.amount}</td>
-                          <td className="p-1 text-muted-foreground text-xs">{inv.paymentType === 'payment_plan' ? 'Payment Plan' : inv.paymentType === 'monthly' ? 'Monthly' : inv.paymentType === 'one_time' ? 'One-Time' : inv.paymentType || 'One-Time'}</td>
+                          <td className="p-1 text-muted-foreground text-xs">
+                            {inv.paymentType === 'payment_plan' 
+                              ? <span className="text-purple-400">{`$${inv.amount}/${inv.planInterval || 'mo'}`}</span>
+                              : inv.paymentType === 'monthly' ? <span className="text-blue-400">Monthly</span>
+                              : 'One-Time'}
+                          </td>
                           <td className="p-1">
                             <select
                               value={inv.paymentStatus || 'pending'}
@@ -3242,7 +3255,12 @@ function BillingSection() {
                     <td className="p-2 text-muted-foreground text-xs">{inv.clientEmail}</td>
                     <td className="p-2 text-white">{inv.projectName}</td>
                     <td className="p-2 text-white font-medium">${inv.amount}</td>
-                    <td className="p-2 text-muted-foreground text-xs">{inv.paymentType === 'payment_plan' ? 'Payment Plan' : inv.paymentType === 'monthly' ? 'Monthly' : inv.paymentType === 'one_time' ? 'One-Time' : inv.paymentType || 'One-Time'}</td>
+                    <td className="p-2 text-xs">
+                      {inv.paymentType === 'payment_plan'
+                        ? <span className="text-purple-400">{`$${inv.amount}/${inv.planInterval || 'mo'}`}{inv.planEndDate ? ` → ends ${formatDate(inv.planEndDate, 'MMM yyyy')}` : ''}</span>
+                        : inv.paymentType === 'monthly' ? <span className="text-blue-400">Monthly</span>
+                        : 'One-Time'}
+                    </td>
                     <td className="p-2">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         inv.paymentStatus === 'paid' ? 'bg-green-500/20 text-green-400' :
