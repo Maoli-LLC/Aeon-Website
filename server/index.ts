@@ -2052,6 +2052,9 @@ async function main() {
 
       const amount = (sub.items.data[0]?.price?.unit_amount || 0) / 100;
       const interval = sub.items.data[0]?.price?.recurring?.interval || 'month';
+      const metaPlanEndDate = sub.metadata?.planEndDate || null;
+      const isPaymentPlan = !!metaPlanEndDate;
+      const planEndDate = metaPlanEndDate ? new Date(metaPlanEndDate) : null;
 
       const existingInvoices = await db.select().from(billingInvoices)
         .where(eq(billingInvoices.stripeSubscriptionId, sub.id));
@@ -2084,6 +2087,13 @@ async function main() {
           if (nextDue) {
             updateData.dueDate = nextDue;
           }
+          if (isPaymentPlan && inv.paymentType !== 'payment_plan') {
+            updateData.paymentType = 'payment_plan';
+            updateData.planInterval = interval;
+          }
+          if (planEndDate && !inv.planEndDate) {
+            updateData.planEndDate = planEndDate;
+          }
           await db.update(billingInvoices).set(updateData).where(eq(billingInvoices.id, inv.id));
         }
         continue;
@@ -2102,8 +2112,10 @@ async function main() {
             projectId: proj.id,
             clientId: proj.clientId,
             amount: String(amount),
-            description: `${proj.projectName} - ${interval}ly subscription`,
-            paymentType: 'monthly',
+            description: `${proj.projectName} - $${amount}/${interval}`,
+            paymentType: isPaymentPlan ? 'payment_plan' : 'monthly',
+            planInterval: interval,
+            planEndDate: planEndDate,
             paymentStatus: 'paid',
             stripeSubscriptionId: sub.id,
             paidAt: new Date(),
@@ -2149,7 +2161,9 @@ async function main() {
         clientId,
         amount: String(amount),
         description: `${projName} - $${amount}/${interval}`,
-        paymentType: 'monthly',
+        paymentType: isPaymentPlan ? 'payment_plan' : 'monthly',
+        planInterval: interval,
+        planEndDate: planEndDate,
         paymentStatus: 'paid',
         stripeSubscriptionId: sub.id,
         paidAt: new Date(),
@@ -2344,7 +2358,18 @@ async function main() {
   // Generate Stripe Payment Link for invoice
   app.post("/api/admin/billing/generate-payment-link", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { projectId, invoiceId, projectName, amount, paymentType, planInterval, planEndDate, clientEmail, clientName } = req.body;
+      const { projectId, projectName, amount, paymentType, planInterval, planEndDate, clientEmail, clientName } = req.body;
+      
+      let invoiceId: number | null = null;
+      if (projectId) {
+        const recentInvoices = await db.select().from(billingInvoices)
+          .where(eq(billingInvoices.projectId, projectId))
+          .orderBy(desc(billingInvoices.createdAt))
+          .limit(1);
+        if (recentInvoices.length > 0) {
+          invoiceId = recentInvoices[0].id;
+        }
+      }
       
       if (!projectName || !amount) {
         return res.status(400).json({ message: "Project name and amount are required" });

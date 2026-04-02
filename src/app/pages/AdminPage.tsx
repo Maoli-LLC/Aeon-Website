@@ -2195,7 +2195,6 @@ function BillingSection() {
   const [generatingPaymentLink, setGeneratingPaymentLink] = useState(false);
   const [cancellingSubscription, setCancellingSubscription] = useState<number | null>(null);
   const [syncingStripe, setSyncingStripe] = useState(false);
-  const [lastCreatedInvoiceId, setLastCreatedInvoiceId] = useState<number | null>(null);
 
   // Get projects for selected client
   const selectedClientProjects = selectedClientId !== 'new' 
@@ -2534,7 +2533,6 @@ function BillingSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           projectId,
-          invoiceId: lastCreatedInvoiceId,
           projectName,
           amount: quickInvoice.amount,
           paymentType: quickInvoice.paymentType,
@@ -2654,7 +2652,6 @@ function BillingSection() {
       
       if (res.ok) {
         const responseData = await res.json();
-        if (responseData.invoiceId) setLastCreatedInvoiceId(responseData.invoiceId);
         const sendAnother = confirm('Invoice sent successfully! Would you like to send another invoice to this client?');
         if (sendAnother) {
           const keepClientId = responseData.clientId || (selectedClientId !== 'new' ? selectedClientId : undefined);
