@@ -215,7 +215,7 @@ export function BlogPage() {
 
   const formatContent = (content: string) => {
     let paragraphs: string[];
-    
+
     if (content.includes('\n\n')) {
       paragraphs = content.split(/\n\n+/);
     } else if (content.includes('\n')) {
@@ -232,88 +232,167 @@ export function BlogPage() {
         }
       });
     }
-    
+
+    let firstParaRendered = false;
+
     return paragraphs.map((paragraph, index) => {
       const trimmed = paragraph.trim();
       if (!trimmed) return null;
-      
+
       const isHeading = (
         (trimmed.length < 80 && trimmed.endsWith(':')) ||
         (trimmed.length < 60 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed))
       );
-      
+
       const lineList = trimmed.split('\n');
       const isList = lineList.length > 1 && lineList.every(line => {
         const t = line.trim();
         return t === '' || /^([\-*•]|\d+[.)])\s+/.test(t);
       });
-      
+
+      const isPullQuote = trimmed.startsWith('> ');
+
       if (isHeading) {
         return (
-          <h3 
-            key={index} 
-            className="text-xl text-primary mt-8 mb-4 font-semibold"
-            style={{ fontFamily: "'Cinzel', serif" }}
+          <h3
+            key={index}
+            className="text-2xl mt-12 mb-5 font-semibold"
+            style={{ fontFamily: "'Cinzel', serif", color: '#c9a14a' }}
           >
             {trimmed.replace(/:$/, '')}
           </h3>
         );
       }
-      
+
       if (isList) {
         const items = trimmed.split('\n').filter(line => line.trim());
         return (
-          <ul key={index} className="list-disc list-inside space-y-2 my-4 text-white/80">
+          <ul key={index} className="list-disc list-outside ml-6 space-y-3 my-6 text-white/85 text-lg leading-relaxed">
             {items.map((item, i) => (
-              <li key={i}>{item.replace(/^([\-*•]|\d+[.)])\s+/, '')}</li>
+              <li key={i} className="pl-2 marker:text-[#8b6f3a]">{item.replace(/^([\-*•]|\d+[.)])\s+/, '')}</li>
             ))}
           </ul>
         );
       }
-      
+
+      if (isPullQuote) {
+        return (
+          <blockquote
+            key={index}
+            className="my-10 px-6 py-5 border-l-4 italic text-xl leading-relaxed"
+            style={{
+              borderColor: '#c9a14a',
+              background: 'linear-gradient(to right, rgba(58, 44, 24, 0.4), transparent)',
+              color: '#e8d8b0',
+            }}
+          >
+            {trimmed.replace(/^>\s+/, '')}
+          </blockquote>
+        );
+      }
+
+      const isFirst = !firstParaRendered;
+      if (isFirst) firstParaRendered = true;
+
       return (
-        <p key={index} className="text-white/80 leading-relaxed text-lg mb-6">
+        <p
+          key={index}
+          className={`text-white/85 leading-[1.85] text-lg mb-6 ${isFirst ? 'first-paragraph' : ''}`}
+          style={{ fontFamily: "'Georgia', 'Cambria', serif" }}
+        >
           {trimmed}
         </p>
       );
     });
   };
 
+  const readingTime = (content: string) => {
+    const words = content.trim().split(/\s+/).filter(Boolean).length;
+    return Math.max(1, Math.round(words / 220));
+  };
+
   if (selectedPost) {
+    const bodyForReading = selectedPost.content || selectedPost.excerpt || '';
+    const minutes = readingTime(bodyForReading);
+    const categoryLabel = selectedPost.category === 'dream' ? 'Dream Blog' : 'Sahlien Blog';
+
     return (
-      <div>
-        <section className="py-12 bg-secondary">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="blog-article-bg">
+        <section className="blog-hero-bg pt-12 pb-16 border-b border-[#3a2c18]/60">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
             <button
               onClick={goBack}
-              className="text-primary hover:text-primary/80 mb-6 flex items-center gap-2"
+              className="text-primary hover:text-[#e8c878] mb-8 flex items-center gap-2 text-sm tracking-wide"
             >
-              ← Back to Blog
+              ← Back to {categoryLabel}
             </button>
-            <h1 className="text-4xl mb-4 text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+
+            <div className="inline-block px-3 py-1 mb-6 text-xs uppercase tracking-[0.2em] rounded-sm"
+              style={{ background: 'rgba(58, 44, 24, 0.6)', color: '#c9a14a', border: '1px solid rgba(201, 161, 74, 0.3)' }}>
+              {categoryLabel}
+            </div>
+
+            <h1
+              className="text-4xl md:text-5xl lg:text-6xl mb-6 leading-tight"
+              style={{ fontFamily: "'Cinzel', serif", color: '#e8c878' }}
+            >
               {selectedPost.title}
             </h1>
-            <p className="text-muted-foreground">{formatDate(selectedPost.createdAt)}</p>
+
+            <div className="flex items-center gap-4 text-sm text-white/60 flex-wrap">
+              <span className="flex items-center gap-2">
+                <span className="w-8 h-px" style={{ background: '#8b6f3a' }}></span>
+                <span style={{ color: '#c9a14a' }}>By Sahlien</span>
+              </span>
+              <span className="text-white/30">·</span>
+              <span>{formatDate(selectedPost.createdAt)}</span>
+              <span className="text-white/30">·</span>
+              <span>{minutes} min read</span>
+            </div>
           </div>
         </section>
 
-        <section className="py-12">
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="prose prose-invert max-w-none mb-12">
+        {selectedPost.imageUrl && (
+          <div className="max-w-4xl mx-auto -mt-8 px-4 sm:px-6 lg:px-8 relative z-10">
+            <img
+              src={selectedPost.imageUrl}
+              alt={selectedPost.title}
+              className="w-full max-h-[480px] object-cover rounded-md shadow-2xl border"
+              style={{ borderColor: 'rgba(201, 161, 74, 0.25)' }}
+            />
+          </div>
+        )}
+
+        <section className="py-16">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="mb-12">
               {selectedPost.content ? (
                 <>
-                  <p className="text-white/90 leading-relaxed text-xl mb-8 border-l-4 border-primary/40 pl-4">
+                  <p
+                    className="text-xl md:text-2xl mb-10 leading-relaxed italic pl-6 border-l-4"
+                    style={{
+                      borderColor: '#c9a14a',
+                      color: '#e8d8b0',
+                      fontFamily: "'Georgia', 'Cambria', serif",
+                    }}
+                  >
                     {truncateText(selectedPost.excerpt, 200)}
                   </p>
-                  <div className="mt-8">
+                  <div className="blog-divider"></div>
+                  <article className="mt-10">
                     {formatContent(selectedPost.content)}
-                  </div>
+                  </article>
                 </>
               ) : (
-                <div>
+                <article>
                   {formatContent(selectedPost.excerpt)}
-                </div>
+                </article>
               )}
+
+              <div className="blog-divider mt-16"></div>
+              <p className="text-center text-sm tracking-[0.3em] uppercase" style={{ color: '#8b6f3a' }}>
+                — End of transmission —
+              </p>
             </div>
 
             <div className="border-t border-primary/20 pt-12">

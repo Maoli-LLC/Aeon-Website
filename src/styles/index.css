@@ -1,3 +1,45 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+.first-paragraph::first-letter {
+  font-family: 'Cinzel', serif;
+  font-size: 4.5rem;
+  font-weight: 600;
+  color: #c9a14a;
+  float: left;
+  line-height: 0.9;
+  margin: 0.35rem 0.65rem 0 0;
+  padding: 0.1rem 0.25rem 0 0;
+  text-shadow: 0 2px 8px rgba(201, 161, 74, 0.2);
+}
+
+.blog-article-bg {
+  background:
+    radial-gradient(ellipse at top, rgba(58, 44, 24, 0.35), transparent 60%),
+    radial-gradient(ellipse at bottom, rgba(58, 44, 24, 0.15), transparent 50%),
+    #0a0807;
+}
+
+.blog-hero-bg {
+  background:
+    linear-gradient(135deg, rgba(58, 44, 24, 0.7) 0%, rgba(28, 20, 12, 0.95) 60%, #0a0807 100%);
+}
+
+.blog-divider {
+  position: relative;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(201, 161, 74, 0.4), transparent);
+  margin: 2rem 0;
+}
+.blog-divider::before {
+  content: '✦';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background: #0a0807;
+  padding: 0 1rem;
+  color: #c9a14a;
+  font-size: 0.9rem;
+}
