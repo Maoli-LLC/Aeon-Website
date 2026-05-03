@@ -490,21 +490,46 @@ async function main() {
   });
 
   // Reformat all existing blog posts (apply current normalizer)
-  app.post("/api/admin/blog-posts/reformat-all", isAuthenticated, isOwner, async (_req, res) => {
+  // Pass ?dryRun=1 to preview without writing.
+  app.post("/api/admin/blog-posts/reformat-all", isAuthenticated, isOwner, async (req, res) => {
     try {
+      const dryRun = req.query.dryRun === '1' || req.query.dryRun === 'true';
       const all = await db.select().from(blogPosts);
-      let updated = 0;
+      const changes: Array<{
+        id: number;
+        title: string;
+        oldLength: number;
+        newLength: number;
+        oldParagraphs: number;
+        newParagraphs: number;
+        beforePreview: string;
+        afterPreview: string;
+      }> = [];
+
       for (const p of all) {
-        const newContent = normalizeBlogContent(p.content);
-        const newExcerpt = normalizeBlogExcerpt(p.excerpt);
-        if (newContent !== (p.content || '') || newExcerpt !== (p.excerpt || '')) {
-          await db.update(blogPosts)
-            .set({ content: newContent, excerpt: newExcerpt, updatedAt: new Date() })
-            .where(eq(blogPosts.id, p.id));
-          updated++;
+        const oldContent = p.content || '';
+        const oldExcerpt = p.excerpt || '';
+        const newContent = normalizeBlogContent(oldContent);
+        const newExcerpt = normalizeBlogExcerpt(oldExcerpt);
+        if (newContent !== oldContent || newExcerpt !== oldExcerpt) {
+          changes.push({
+            id: p.id,
+            title: p.title,
+            oldLength: oldContent.length,
+            newLength: newContent.length,
+            oldParagraphs: oldContent ? oldContent.split(/\n\n+/).length : 0,
+            newParagraphs: newContent ? newContent.split(/\n\n+/).length : 0,
+            beforePreview: oldContent.slice(0, 280),
+            afterPreview: newContent.slice(0, 280),
+          });
+          if (!dryRun) {
+            await db.update(blogPosts)
+              .set({ content: newContent, excerpt: newExcerpt, updatedAt: new Date() })
+              .where(eq(blogPosts.id, p.id));
+          }
         }
       }
-      res.json({ success: true, total: all.length, updated });
+      res.json({ success: true, dryRun, total: all.length, updated: changes.length, changes });
     } catch (error) {
       console.error("Error reformatting blog posts:", error);
       res.status(500).json({ message: "Failed to reformat posts" });

@@ -112,6 +112,17 @@ export function AdminPage() {
   );
 }
 
+interface ReformatChange {
+  id: number;
+  title: string;
+  oldLength: number;
+  newLength: number;
+  oldParagraphs: number;
+  newParagraphs: number;
+  beforePreview: string;
+  afterPreview: string;
+}
+
 function BlogsSection() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +131,34 @@ function BlogsSection() {
   const [formData, setFormData] = useState({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'unpublished'>('all');
+  const [reformatOpen, setReformatOpen] = useState(false);
+  const [reformatStep, setReformatStep] = useState<'intro' | 'loading' | 'preview' | 'applying' | 'done' | 'error'>('intro');
+  const [reformatData, setReformatData] = useState<{ total: number; updated: number; changes: ReformatChange[] } | null>(null);
+  const [reformatError, setReformatError] = useState('');
+
+  const runReformat = async (dryRun: boolean) => {
+    setReformatStep(dryRun ? 'loading' : 'applying');
+    setReformatError('');
+    try {
+      const url = dryRun ? '/api/admin/blog-posts/reformat-all?dryRun=1' : '/api/admin/blog-posts/reformat-all';
+      const res = await fetch(url, { method: 'POST' });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || 'Reformat failed');
+      setReformatData({ total: data.total, updated: data.updated, changes: data.changes || [] });
+      setReformatStep(dryRun ? 'preview' : 'done');
+      if (!dryRun) fetchPosts();
+    } catch (e: any) {
+      setReformatError(e?.message || 'Unknown error');
+      setReformatStep('error');
+    }
+  };
+
+  const closeReformat = () => {
+    setReformatOpen(false);
+    setReformatStep('intro');
+    setReformatData(null);
+    setReformatError('');
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile, isUploading } = useUpload({
     onSuccess: (response) => {
@@ -206,17 +245,7 @@ function BlogsSection() {
             <option value="unpublished">Unpublished Only</option>
           </select>
           <button
-            onClick={async () => {
-              if (!confirm('Reformat ALL existing blog posts for consistent readability? This rewrites their content in place.')) return;
-              const res = await fetch('/api/admin/blog-posts/reformat-all', { method: 'POST' });
-              const data = await res.json();
-              if (data.success) {
-                alert(`Reformatted ${data.updated} of ${data.total} posts.`);
-                fetchPosts();
-              } else {
-                alert('Reformat failed.');
-              }
-            }}
+            onClick={() => { setReformatStep('intro'); setReformatData(null); setReformatError(''); setReformatOpen(true); }}
             className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10"
           >
             Reformat All
@@ -377,6 +406,166 @@ function BlogsSection() {
           </div>
         ))}
       </div>
+
+      {reformatOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && reformatStep !== 'loading' && reformatStep !== 'applying') closeReformat(); }}
+        >
+          <div className="bg-card border border-primary/30 rounded-lg w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-primary/20">
+              <h3 className="text-2xl text-primary" style={{ fontFamily: "'Cinzel', serif" }}>
+                {reformatStep === 'intro' && 'Reformat All Blog Posts'}
+                {reformatStep === 'loading' && 'Scanning posts…'}
+                {reformatStep === 'preview' && 'Preview changes'}
+                {reformatStep === 'applying' && 'Applying changes…'}
+                {reformatStep === 'done' && 'Reformat complete'}
+                {reformatStep === 'error' && 'Something went wrong'}
+              </h3>
+              {(reformatStep !== 'loading' && reformatStep !== 'applying') && (
+                <button
+                  onClick={closeReformat}
+                  className="text-white/60 hover:text-white text-2xl leading-none"
+                  aria-label="Close"
+                >×</button>
+              )}
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-1">
+              {reformatStep === 'intro' && (
+                <div className="space-y-4 text-white/80">
+                  <p>This will scan every blog post and apply the auto-formatter:</p>
+                  <ul className="list-disc list-inside space-y-1 text-white/70">
+                    <li>Smart quotes / dashes converted to plain ones</li>
+                    <li>Walls of text broken into ~3-sentence paragraphs</li>
+                    <li>Bullet and numbered lists preserved</li>
+                    <li>Excess whitespace cleaned up</li>
+                  </ul>
+                  <p className="text-white/70">
+                    Click <span className="text-primary">Preview</span> first to see exactly what would change without saving anything.
+                  </p>
+                </div>
+              )}
+
+              {(reformatStep === 'loading' || reformatStep === 'applying') && (
+                <div className="flex flex-col items-center justify-center py-12 text-white/70">
+                  <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mb-4"></div>
+                  <p>{reformatStep === 'loading' ? 'Computing what would change…' : 'Saving changes to all posts…'}</p>
+                </div>
+              )}
+
+              {reformatStep === 'preview' && reformatData && (
+                <div className="space-y-4">
+                  <div className="flex gap-4 flex-wrap">
+                    <div className="bg-background border border-primary/20 rounded-md px-4 py-3">
+                      <div className="text-xs text-white/60 uppercase tracking-wide">Total posts</div>
+                      <div className="text-2xl text-primary">{reformatData.total}</div>
+                    </div>
+                    <div className="bg-background border border-primary/20 rounded-md px-4 py-3">
+                      <div className="text-xs text-white/60 uppercase tracking-wide">Would change</div>
+                      <div className="text-2xl text-primary">{reformatData.updated}</div>
+                    </div>
+                    <div className="bg-background border border-primary/20 rounded-md px-4 py-3">
+                      <div className="text-xs text-white/60 uppercase tracking-wide">Already clean</div>
+                      <div className="text-2xl text-white/80">{reformatData.total - reformatData.updated}</div>
+                    </div>
+                  </div>
+
+                  {reformatData.updated === 0 ? (
+                    <p className="text-white/70 italic">All posts are already cleanly formatted. Nothing to do.</p>
+                  ) : (
+                    <>
+                      <p className="text-white/70 text-sm">
+                        Showing {Math.min(reformatData.changes.length, 10)} of {reformatData.updated} changes (first 280 chars each):
+                      </p>
+                      <div className="space-y-3">
+                        {reformatData.changes.slice(0, 10).map(c => (
+                          <div key={c.id} className="border border-primary/20 rounded-md overflow-hidden">
+                            <div className="bg-background/60 px-3 py-2 flex items-center justify-between text-sm">
+                              <span className="text-primary truncate pr-2">#{c.id} — {c.title}</span>
+                              <span className="text-white/50 text-xs whitespace-nowrap">
+                                {c.oldParagraphs} → {c.newParagraphs} paragraphs · {c.oldLength} → {c.newLength} chars
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-primary/10">
+                              <div className="bg-background p-3">
+                                <div className="text-xs text-red-400 uppercase tracking-wide mb-1">Before</div>
+                                <pre className="text-xs text-white/70 whitespace-pre-wrap font-mono">{c.beforePreview}{c.oldLength > 280 ? '…' : ''}</pre>
+                              </div>
+                              <div className="bg-background p-3">
+                                <div className="text-xs text-green-400 uppercase tracking-wide mb-1">After</div>
+                                <pre className="text-xs text-white/90 whitespace-pre-wrap font-mono">{c.afterPreview}{c.newLength > 280 ? '…' : ''}</pre>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {reformatStep === 'done' && reformatData && (
+                <div className="space-y-4 text-white/80">
+                  <div className="flex items-center gap-3 text-green-400">
+                    <span className="text-3xl">✓</span>
+                    <span className="text-lg">Done — {reformatData.updated} of {reformatData.total} posts reformatted.</span>
+                  </div>
+                  {reformatData.updated > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-white/70 text-sm">Updated posts:</p>
+                      <div className="max-h-64 overflow-y-auto border border-primary/20 rounded-md divide-y divide-primary/10">
+                        {reformatData.changes.map(c => (
+                          <div key={c.id} className="px-3 py-2 text-sm flex justify-between items-center">
+                            <span className="text-white/80 truncate pr-2">#{c.id} — {c.title}</span>
+                            <a
+                              href={`/blog/${c.id}`}
+                              onClick={(e) => { e.preventDefault(); window.open(`/blog/sahlien/${c.id}`, '_blank'); }}
+                              className="text-primary hover:underline text-xs whitespace-nowrap"
+                            >View →</a>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-white/60 text-xs">Tip: open any post above in a new tab to confirm the new formatting renders correctly.</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {reformatStep === 'error' && (
+                <div className="text-red-400">
+                  <p className="mb-2">Reformat failed:</p>
+                  <pre className="bg-background border border-red-500/30 rounded p-3 text-sm whitespace-pre-wrap">{reformatError}</pre>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-primary/20 flex justify-end gap-3 flex-wrap">
+              {reformatStep === 'intro' && (
+                <>
+                  <button onClick={closeReformat} className="px-4 py-2 border border-white/30 text-white/80 rounded-md hover:bg-white/5">Cancel</button>
+                  <button onClick={() => runReformat(true)} className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90">Preview</button>
+                </>
+              )}
+              {reformatStep === 'preview' && reformatData && (
+                <>
+                  <button onClick={closeReformat} className="px-4 py-2 border border-white/30 text-white/80 rounded-md hover:bg-white/5">Cancel</button>
+                  <button
+                    onClick={() => runReformat(false)}
+                    disabled={reformatData.updated === 0}
+                    className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    Apply {reformatData.updated > 0 ? `(${reformatData.updated} posts)` : ''}
+                  </button>
+                </>
+              )}
+              {(reformatStep === 'done' || reformatStep === 'error') && (
+                <button onClick={closeReformat} className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90">Close</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
