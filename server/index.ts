@@ -333,7 +333,11 @@ async function main() {
         posts = await db.select().from(blogPosts)
           .orderBy(desc(blogPosts.createdAt));
       }
-      res.json(posts.filter(p => p.published));
+      res.json(posts.filter(p => p.published).map(p => ({
+        ...p,
+        excerpt: normalizeBlogExcerpt(p.excerpt),
+        content: normalizeBlogContent(p.content),
+      })));
     } catch (error) {
       console.error("Error fetching blog posts:", error);
       res.status(500).json({ message: "Failed to fetch posts" });
@@ -439,7 +443,11 @@ async function main() {
   app.get("/api/admin/blog-posts", isAuthenticated, isOwner, async (req, res) => {
     try {
       const posts = await db.select().from(blogPosts).orderBy(desc(blogPosts.createdAt));
-      res.json(posts);
+      res.json(posts.map(p => ({
+        ...p,
+        excerpt: normalizeBlogExcerpt(p.excerpt),
+        content: normalizeBlogContent(p.content),
+      })));
     } catch (error) {
       console.error("Error fetching blog posts:", error);
       res.status(500).json({ message: "Failed to fetch posts" });
