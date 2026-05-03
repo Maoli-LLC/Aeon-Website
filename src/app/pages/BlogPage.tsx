@@ -242,9 +242,11 @@ export function BlogPage() {
         (trimmed.length < 60 && trimmed === trimmed.toUpperCase() && /[A-Z]/.test(trimmed))
       );
       
-      const isList = trimmed.split('\n').every(line => 
-        /^[\-\*\•\d+\.\)]\s/.test(line.trim()) || line.trim() === ''
-      );
+      const lineList = trimmed.split('\n');
+      const isList = lineList.length > 1 && lineList.every(line => {
+        const t = line.trim();
+        return t === '' || /^([\-*•]|\d+[.)])\s+/.test(t);
+      });
       
       if (isHeading) {
         return (
@@ -263,7 +265,7 @@ export function BlogPage() {
         return (
           <ul key={index} className="list-disc list-inside space-y-2 my-4 text-white/80">
             {items.map((item, i) => (
-              <li key={i}>{item.replace(/^[\-\*\•\d+\.\)]\s*/, '')}</li>
+              <li key={i}>{item.replace(/^([\-*•]|\d+[.)])\s+/, '')}</li>
             ))}
           </ul>
         );

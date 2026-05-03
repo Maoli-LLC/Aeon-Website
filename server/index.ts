@@ -8,6 +8,7 @@ import { registerObjectStorageRoutes, ObjectStorageService, objectStorageClient 
 import { db, pool } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems, billingInvoices } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
+import { normalizeBlogContent, normalizeBlogExcerpt } from "./blogFormatter";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
 import { getUncachableStripeClient, getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -448,12 +449,13 @@ async function main() {
   // Create blog post
   app.post("/api/admin/blog-posts", isAuthenticated, isOwner, async (req, res) => {
     try {
-      const { title, excerpt, content, category, published } = req.body;
+      const { title, excerpt, content, category, published, imageUrl } = req.body;
       const [post] = await db.insert(blogPosts).values({
-        title,
-        excerpt,
-        content,
+        title: (title || '').trim(),
+        excerpt: normalizeBlogExcerpt(excerpt),
+        content: normalizeBlogContent(content),
         category,
+        imageUrl: imageUrl || null,
         published: published ?? false,
       }).returning();
       res.json(post);
@@ -467,15 +469,45 @@ async function main() {
   app.put("/api/admin/blog-posts/:id", isAuthenticated, isOwner, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { title, excerpt, content, category, published } = req.body;
+      const { title, excerpt, content, category, published, imageUrl } = req.body;
       const [post] = await db.update(blogPosts)
-        .set({ title, excerpt, content, category, published, updatedAt: new Date() })
+        .set({
+          title: (title || '').trim(),
+          excerpt: normalizeBlogExcerpt(excerpt),
+          content: normalizeBlogContent(content),
+          category,
+          imageUrl: imageUrl ?? null,
+          published,
+          updatedAt: new Date(),
+        })
         .where(eq(blogPosts.id, id))
         .returning();
       res.json(post);
     } catch (error) {
       console.error("Error updating blog post:", error);
       res.status(500).json({ message: "Failed to update post" });
+    }
+  });
+
+  // Reformat all existing blog posts (apply current normalizer)
+  app.post("/api/admin/blog-posts/reformat-all", isAuthenticated, isOwner, async (_req, res) => {
+    try {
+      const all = await db.select().from(blogPosts);
+      let updated = 0;
+      for (const p of all) {
+        const newContent = normalizeBlogContent(p.content);
+        const newExcerpt = normalizeBlogExcerpt(p.excerpt);
+        if (newContent !== (p.content || '') || newExcerpt !== (p.excerpt || '')) {
+          await db.update(blogPosts)
+            .set({ content: newContent, excerpt: newExcerpt, updatedAt: new Date() })
+            .where(eq(blogPosts.id, p.id));
+          updated++;
+        }
+      }
+      res.json({ success: true, total: all.length, updated });
+    } catch (error) {
+      console.error("Error reformatting blog posts:", error);
+      res.status(500).json({ message: "Failed to reformat posts" });
     }
   });
 

@@ -9,6 +9,7 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
   - Note: post `category` values in DB are `'sahlien'` and `'dream'` (singular), but URL slugs use `'sahlien'`/`'dreams'`
   - Per-post `<title>`, meta description, canonical, OpenGraph, and BlogPosting JSON-LD set via `useSEO` hook
   - Dynamic sitemap at `/sitemap.xml` (served by backend on port 3001) lists every published post
+  - **Auto-formatting on save**: `server/blogFormatter.ts` normalizes content (smart quotes → straight, walls of text split into ~3-sentence paragraphs, bullet/numbered lists preserved, single-newlines turned into proper paragraph breaks). Runs on POST/PUT and via "Reformat All" admin button (`/api/admin/blog-posts/reformat-all`).
 - **Sovereign Dream Lattice**: Free dream interpretation service
 - **Music Creation**: Commission songs ($97) or albums ($444) with free lyrics
 - **Website/App Creation**: Free design concepts, then commission full build with custom Stripe payment links

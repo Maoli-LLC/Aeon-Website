@@ -206,6 +206,22 @@ function BlogsSection() {
             <option value="unpublished">Unpublished Only</option>
           </select>
           <button
+            onClick={async () => {
+              if (!confirm('Reformat ALL existing blog posts for consistent readability? This rewrites their content in place.')) return;
+              const res = await fetch('/api/admin/blog-posts/reformat-all', { method: 'POST' });
+              const data = await res.json();
+              if (data.success) {
+                alert(`Reformatted ${data.updated} of ${data.total} posts.`);
+                fetchPosts();
+              } else {
+                alert('Reformat failed.');
+              }
+            }}
+            className="px-4 py-2 border border-primary text-primary rounded-md hover:bg-primary/10"
+          >
+            Reformat All
+          </button>
+          <button
             onClick={() => { setShowForm(true); setEditingPost(null); setFormData({ title: '', excerpt: '', content: '', imageUrl: '', category: 'sahlien', published: false }); }}
             className="px-4 py-2 bg-primary text-black rounded-md hover:bg-primary/90"
           >
@@ -267,7 +283,7 @@ function BlogsSection() {
             />
           </div>
           <div>
-            <label className="block text-primary mb-2">Subject</label>
+            <label className="block text-primary mb-2">Subject / Excerpt</label>
             <textarea
               placeholder="Brief summary or subject of the post"
               value={formData.excerpt}
@@ -275,6 +291,16 @@ function BlogsSection() {
               className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-24"
               required
             />
+          </div>
+          <div>
+            <label className="block text-primary mb-2">Content</label>
+            <textarea
+              placeholder="Paste or write the full post. Any format works — it'll be auto-formatted into clean paragraphs on save."
+              value={formData.content}
+              onChange={e => setFormData({ ...formData, content: e.target.value })}
+              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-64 font-mono text-sm"
+            />
+            <p className="text-xs text-white/50 mt-1">Walls of text are split into ~3-sentence paragraphs. Existing line breaks and bullet lists are preserved.</p>
           </div>
           <div className="flex gap-4 flex-wrap">
             <div>
