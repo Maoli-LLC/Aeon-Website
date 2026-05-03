@@ -8,7 +8,7 @@ import { registerObjectStorageRoutes, ObjectStorageService, objectStorageClient 
 import { db, pool } from "./db";
 import { blogPosts, emailSubscribers, dreamRequests, musicRequests, blogComments, scheduledEmails, webAppRequests, analyticsEvents, analyticsDailyMetrics, billingClients, billingProjects, billingAttachments, billingLineItems, billingInvoices } from "@shared/schema";
 import { eq, desc, and, lte, gte, sql, count, countDistinct } from "drizzle-orm";
-import { normalizeBlogContent, normalizeBlogExcerpt } from "./blogFormatter";
+import { normalizeBlogContent, normalizeBlogExcerpt, deriveExcerptFromContent } from "./blogFormatter";
 import { sendEmail, sendEmailWithAttachment, getGmailAuthUrl, exchangeCodeForTokens, isGmailConfigured } from "./gmail";
 import { getUncachableStripeClient, getStripeSync } from "./stripeClient";
 import { WebhookHandlers } from "./webhookHandlers";
@@ -458,9 +458,10 @@ async function main() {
   app.post("/api/admin/blog-posts", isAuthenticated, isOwner, async (req, res) => {
     try {
       const { title, excerpt, content, category, published, imageUrl } = req.body;
+      const finalExcerpt = (excerpt && excerpt.trim()) ? excerpt : deriveExcerptFromContent(content);
       const [post] = await db.insert(blogPosts).values({
         title: (title || '').trim(),
-        excerpt: normalizeBlogExcerpt(excerpt),
+        excerpt: normalizeBlogExcerpt(finalExcerpt),
         content: normalizeBlogContent(content),
         category,
         imageUrl: imageUrl || null,
@@ -478,10 +479,11 @@ async function main() {
     try {
       const id = parseInt(req.params.id);
       const { title, excerpt, content, category, published, imageUrl } = req.body;
+      const finalExcerpt = (excerpt && excerpt.trim()) ? excerpt : deriveExcerptFromContent(content);
       const [post] = await db.update(blogPosts)
         .set({
           title: (title || '').trim(),
-          excerpt: normalizeBlogExcerpt(excerpt),
+          excerpt: normalizeBlogExcerpt(finalExcerpt),
           content: normalizeBlogContent(content),
           category,
           imageUrl: imageUrl ?? null,

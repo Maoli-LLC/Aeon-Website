@@ -77,3 +77,15 @@ export function normalizeBlogExcerpt(input: string | null | undefined): string {
   text = text.replace(/\s+/g, ' ').trim();
   return text;
 }
+
+export function deriveExcerptFromContent(input: string | null | undefined, max = 220): string {
+  if (!input) return '';
+  const cleaned = normalizeChars(String(input)).replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  if (cleaned.length <= max) return cleaned;
+  const slice = cleaned.slice(0, max);
+  const lastStop = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '));
+  if (lastStop > 80) return slice.slice(0, lastStop + 1).trim();
+  const lastSpace = slice.lastIndexOf(' ');
+  return ((lastSpace > 80 ? slice.slice(0, lastSpace) : slice).trim()) + '…';
+}

@@ -184,15 +184,31 @@ function BlogsSection() {
     setLoading(false);
   };
 
+  const deriveExcerpt = (content: string, max = 220): string => {
+    const cleaned = (content || '').replace(/\s+/g, ' ').trim();
+    if (!cleaned) return '';
+    if (cleaned.length <= max) return cleaned;
+    const slice = cleaned.slice(0, max);
+    const lastStop = Math.max(slice.lastIndexOf('. '), slice.lastIndexOf('! '), slice.lastIndexOf('? '));
+    if (lastStop > 80) return slice.slice(0, lastStop + 1);
+    const lastSpace = slice.lastIndexOf(' ');
+    return (lastSpace > 80 ? slice.slice(0, lastSpace) : slice).trim() + '…';
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const method = editingPost ? 'PUT' : 'POST';
     const url = editingPost ? `/api/admin/blog-posts/${editingPost.id}` : '/api/admin/blog-posts';
-    
+
+    const payload = {
+      ...formData,
+      excerpt: formData.excerpt?.trim() || deriveExcerpt(formData.content),
+    };
+
     await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(formData),
+      body: JSON.stringify(payload),
     });
     
     setShowForm(false);
@@ -312,24 +328,15 @@ function BlogsSection() {
             />
           </div>
           <div>
-            <label className="block text-primary mb-2">Subject / Excerpt</label>
-            <textarea
-              placeholder="Brief summary or subject of the post"
-              value={formData.excerpt}
-              onChange={e => setFormData({ ...formData, excerpt: e.target.value })}
-              className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-24"
-              required
-            />
-          </div>
-          <div>
             <label className="block text-primary mb-2">Content</label>
             <textarea
               placeholder="Paste or write the full post. Any format works — it'll be auto-formatted into clean paragraphs on save."
               value={formData.content}
               onChange={e => setFormData({ ...formData, content: e.target.value })}
               className="w-full px-4 py-2 bg-background border border-primary/20 rounded-md text-white h-64 font-mono text-sm"
+              required
             />
-            <p className="text-xs text-white/50 mt-1">Walls of text are split into ~3-sentence paragraphs. Existing line breaks and bullet lists are preserved.</p>
+            <p className="text-xs text-white/50 mt-1">Walls of text are split into ~3-sentence paragraphs. Excerpt is auto-generated from your content.</p>
           </div>
           <div className="flex gap-4 flex-wrap">
             <div>
