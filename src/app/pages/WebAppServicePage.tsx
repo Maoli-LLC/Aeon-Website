@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react';
 import { Code, Smartphone, Palette, Layers } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { trackEvent } from '../hooks/useAnalytics';
+import { useSEO } from '@/lib/useSEO';
 
 export function WebAppServicePage() {
+  useSEO({
+    title: 'Website & App Creation Services',
+    description: 'Get a free custom design concept, then commission your full website or mobile app build with Sahlien. Modern, fast, and tailored to your vision.',
+    canonical: 'https://www.iamsahlien.com/services',
+  });
   const { user, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({
     name: '',

@@ -17,13 +17,80 @@
       <meta property="og:title" content="Team Aeon | Sahlien - Music, Dreams & Digital Creation" />
       <meta property="og:description" content="Explore the harmonic world of Sahlien - free dream interpretations, custom music creation, website & app development." />
       <meta property="og:site_name" content="Team Aeon" />
+      <meta property="og:image" content="https://www.iamsahlien.com/team-aeon-logo.png" />
+      <meta property="og:image:alt" content="Team Aeon - Sahlien" />
       
       <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content="Team Aeon | Sahlien" />
       <meta name="twitter:description" content="Free dream interpretations, custom music creation, website & app development by Sahlien." />
+      <meta name="twitter:image" content="https://www.iamsahlien.com/team-aeon-logo.png" />
       
-      <meta name="robots" content="index, follow" />
+      <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
       <meta name="googlebot" content="index, follow" />
+      <meta name="theme-color" content="#d4af37" />
+
+      <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://www.iamsahlien.com/#organization",
+            "name": "Team Aeon",
+            "url": "https://www.iamsahlien.com",
+            "logo": "https://www.iamsahlien.com/team-aeon-logo.png",
+            "founder": { "@type": "Person", "name": "Sahlien" },
+            "sameAs": []
+          },
+          {
+            "@type": "Person",
+            "@id": "https://www.iamsahlien.com/#sahlien",
+            "name": "Sahlien",
+            "url": "https://www.iamsahlien.com",
+            "jobTitle": "Founder of Team Aeon",
+            "worksFor": { "@id": "https://www.iamsahlien.com/#organization" }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://www.iamsahlien.com/#website",
+            "url": "https://www.iamsahlien.com",
+            "name": "Team Aeon",
+            "publisher": { "@id": "https://www.iamsahlien.com/#organization" },
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": "https://www.iamsahlien.com/blog?search={search_term_string}",
+              "query-input": "required name=search_term_string"
+            }
+          },
+          {
+            "@type": "Service",
+            "name": "Sovereign Dream Lattice",
+            "description": "Free dream interpretation service offering spiritual insight into your dreams.",
+            "url": "https://www.iamsahlien.com/dream-lattice",
+            "provider": { "@id": "https://www.iamsahlien.com/#organization" },
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+          },
+          {
+            "@type": "Service",
+            "name": "Custom Music Creation",
+            "description": "Commission custom songs and albums with free lyrics included.",
+            "url": "https://www.iamsahlien.com/music",
+            "provider": { "@id": "https://www.iamsahlien.com/#organization" },
+            "offers": [
+              { "@type": "Offer", "name": "Custom Song", "price": "97", "priceCurrency": "USD" },
+              { "@type": "Offer", "name": "Custom Album", "price": "444", "priceCurrency": "USD" }
+            ]
+          },
+          {
+            "@type": "Service",
+            "name": "Website & App Creation",
+            "description": "Free design concepts followed by full custom website and app development.",
+            "url": "https://www.iamsahlien.com/services",
+            "provider": { "@id": "https://www.iamsahlien.com/#organization" }
+          }
+        ]
+      }
+      </script>
     </head>
 
     <body>

@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { Mail } from 'lucide-react';
+import { useSEO } from '@/lib/useSEO';
 
 export function ContactPage() {
+  useSEO({
+    title: 'Contact Sahlien & Team Aeon',
+    description: 'Get in touch with Sahlien and Team Aeon. Subscribe to the newsletter or send a direct message.',
+    canonical: 'https://www.iamsahlien.com/contact',
+  });
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [subscribeSubmitting, setSubscribeSubmitting] = useState(false);

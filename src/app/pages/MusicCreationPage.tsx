@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react';
 import { Music } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { trackEvent } from '../hooks/useAnalytics';
+import { useSEO } from '@/lib/useSEO';
 
 export function MusicCreationPage() {
+  useSEO({
+    title: 'Custom Music Creation - Songs from $97, Albums from $444',
+    description: 'Commission a custom song ($97) or full album ($444) from Sahlien. Free lyrics included with every commission. Bring your story to life through music.',
+    canonical: 'https://www.iamsahlien.com/music',
+  });
   const { user, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', description: '', mood: '', purpose: '' });
   const [submitting, setSubmitting] = useState(false);

@@ -2,8 +2,14 @@ import { useState, useEffect } from 'react';
 import { Moon, Sparkles } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { trackEvent } from '../hooks/useAnalytics';
+import { useSEO } from '@/lib/useSEO';
 
 export function DreamLatticePage() {
+  useSEO({
+    title: 'Free Dream Interpretation - Sovereign Dream Lattice',
+    description: 'Submit your dream and receive a free spiritual interpretation from Sahlien through the Sovereign Dream Lattice. Discover the meaning behind your dreams.',
+    canonical: 'https://www.iamsahlien.com/dream-lattice',
+  });
   const { user, isAuthenticated } = useAuth();
   const [formData, setFormData] = useState({ name: '', email: '', dreamDescription: '' });
   const [submitting, setSubmitting] = useState(false);

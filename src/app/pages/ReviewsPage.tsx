@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Star, MessageSquare, User, Send, CheckCircle, X, PenLine } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
+import { useSEO } from '@/lib/useSEO';
 
 interface Review {
   id: number;
@@ -22,6 +23,11 @@ const SERVICES = [
 ];
 
 export function ReviewsPage() {
+  useSEO({
+    title: 'Customer Reviews & Testimonials',
+    description: 'Read real reviews from clients of Sahlien and Team Aeon - dream interpretations, custom music, and website creation testimonials.',
+    canonical: 'https://www.iamsahlien.com/reviews',
+  });
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);

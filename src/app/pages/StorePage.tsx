@@ -1,6 +1,12 @@
 import { ExternalLink } from 'lucide-react';
+import { useSEO } from '@/lib/useSEO';
 
 export function StorePage() {
+  useSEO({
+    title: 'Store - Team Aeon Apparel & Accessories',
+    description: 'Shop Team Aeon t-shirts, mugs, and harmonically aligned accessories. Wear the frequency.',
+    canonical: 'https://www.iamsahlien.com/store',
+  });
   const categories = [
     {
       name: 'T-Shirts',

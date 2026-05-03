@@ -1,6 +1,12 @@
 import { Download } from 'lucide-react';
+import { useSEO } from '@/lib/useSEO';
 
 export function Homepage() {
+  useSEO({
+    title: 'Sahlien - Music, Dreams & Digital Creation',
+    description: 'Welcome to Team Aeon. Free dream interpretations, custom music creation from $97, and complete website & app development by Sahlien.',
+    canonical: 'https://www.iamsahlien.com/',
+  });
   return (
     <div>
       {/* Hero Section */}

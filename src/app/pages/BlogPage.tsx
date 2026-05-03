@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
+import { useSEO } from '@/lib/useSEO';
 
 interface BlogPost {
   id: number;
@@ -25,6 +26,11 @@ interface Comment {
 }
 
 export function BlogPage() {
+  useSEO({
+    title: 'Blog - Sahlien Insights & Dream Wisdom',
+    description: 'Read the Sahlien Blog and Dream Blog by Team Aeon for spiritual insights, dream wisdom, and harmonic guidance.',
+    canonical: 'https://www.iamsahlien.com/blog',
+  });
   const { user, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<'sahlien' | 'dream'>('sahlien');
