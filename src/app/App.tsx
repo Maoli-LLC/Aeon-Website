@@ -21,6 +21,8 @@ export default function App() {
         <Route path="/" element={<Layout />}>
           <Route index element={<Homepage />} />
           <Route path="blog" element={<BlogPage />} />
+          <Route path="blog/:blogType" element={<BlogPage />} />
+          <Route path="blog/:blogType/:postId" element={<BlogPage />} />
           <Route path="music" element={<MusicCreationPage />} />
           <Route path="dream-lattice" element={<DreamLatticePage />} />
           <Route path="store" element={<StorePage />} />

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/use-auth';
 import { useSEO } from '@/lib/useSEO';
 
@@ -26,14 +26,15 @@ interface Comment {
 }
 
 export function BlogPage() {
-  useSEO({
-    title: 'Blog - Sahlien Insights & Dream Wisdom',
-    description: 'Read the Sahlien Blog and Dream Blog by Team Aeon for spiritual insights, dream wisdom, and harmonic guidance.',
-    canonical: 'https://www.iamsahlien.com/blog',
-  });
+  const { blogType, postId } = useParams<{ blogType?: string; postId?: string }>();
+  const navigate = useNavigate();
+  const initialTab: 'sahlien' | 'dream' = blogType === 'dreams' ? 'dream' : 'sahlien';
   const { user, isLoading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [activeTab, setActiveTab] = useState<'sahlien' | 'dream'>('sahlien');
+  const [activeTab, setActiveTab] = useState<'sahlien' | 'dream'>(initialTab);
+
+  const stripHtml = (s: string) => s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  const truncate = (s: string, n: number) => s.length > n ? s.slice(0, n - 1).trim() + '…' : s;
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
@@ -42,7 +43,6 @@ export function BlogPage() {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [initialPostLoaded, setInitialPostLoaded] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const postsPerPage = 5;
 
@@ -67,48 +67,93 @@ export function BlogPage() {
   const prevPost = currentPostIndex > 0 ? posts[currentPostIndex - 1] : null;
   const nextPost = currentPostIndex < posts.length - 1 ? posts[currentPostIndex + 1] : null;
 
+  const blogSlug = activeTab === 'dream' ? 'dreams' : 'sahlien';
+  const blogLabel = activeTab === 'dream' ? 'Dream Blog' : 'Sahlien Blog';
+  const seoOptions = selectedPost
+    ? (() => {
+        const postUrl = `https://www.iamsahlien.com/blog/${selectedPost.category === 'dream' ? 'dreams' : 'sahlien'}/${selectedPost.id}`;
+        const postDesc = truncate(stripHtml(selectedPost.excerpt || selectedPost.content || ''), 160);
+        return {
+          title: selectedPost.title,
+          description: postDesc,
+          canonical: postUrl,
+          image: selectedPost.imageUrl || undefined,
+          type: 'article',
+          jsonLd: {
+            '@context': 'https://schema.org',
+            '@type': 'BlogPosting',
+            headline: selectedPost.title,
+            description: postDesc,
+            image: selectedPost.imageUrl || 'https://www.iamsahlien.com/team-aeon-logo.png',
+            datePublished: selectedPost.createdAt,
+            author: { '@type': 'Person', name: 'Sahlien' },
+            publisher: {
+              '@type': 'Organization',
+              name: 'Team Aeon',
+              logo: { '@type': 'ImageObject', url: 'https://www.iamsahlien.com/team-aeon-logo.png' },
+            },
+            mainEntityOfPage: { '@type': 'WebPage', '@id': postUrl },
+          },
+        };
+      })()
+    : {
+        title: `${blogLabel} - Insights & Wisdom from Sahlien`,
+        description: activeTab === 'dream'
+          ? 'Read the Dream Blog by Sahlien - dream interpretations, symbolism, and spiritual insights into the dream realm.'
+          : 'Read the Sahlien Blog - spiritual insights, harmonic guidance, and reflections on consciousness and creation.',
+        canonical: `https://www.iamsahlien.com/blog/${blogSlug}`,
+      };
+  useSEO(seoOptions);
+
   useEffect(() => {
     setCurrentPage(1);
   }, [searchQuery]);
 
   useEffect(() => {
+    if (blogType === 'dreams' && activeTab !== 'dream') setActiveTab('dream');
+    if (blogType === 'sahlien' && activeTab !== 'sahlien') setActiveTab('sahlien');
+  }, [blogType]);
+
+  useEffect(() => {
+    let cancelled = false;
     fetch(`/api/blog-posts?category=${activeTab}`)
       .then(res => res.json())
       .then(data => {
+        if (cancelled) return;
         setPosts(data);
         setLoading(false);
-        
-        // Check for post parameter in URL and auto-open that post
-        const postId = searchParams.get('post');
-        if (postId && !initialPostLoaded) {
-          const targetPost = data.find((p: BlogPost) => p.id === parseInt(postId));
+
+        const queryPostId = searchParams.get('post');
+        const targetId = postId || queryPostId;
+        if (targetId) {
+          const targetPost = data.find((p: BlogPost) => p.id === parseInt(targetId));
           if (targetPost) {
-            viewPost(targetPost);
-            setInitialPostLoaded(true);
-            // Clear the URL parameter after loading
-            setSearchParams({});
+            loadPostContent(targetPost);
+            if (queryPostId) setSearchParams({});
           } else {
-            // Post not in current category, try fetching from the other category
             const otherCategory = activeTab === 'sahlien' ? 'dream' : 'sahlien';
             fetch(`/api/blog-posts?category=${otherCategory}`)
               .then(res => res.json())
               .then(otherData => {
-                const foundPost = otherData.find((p: BlogPost) => p.id === parseInt(postId));
+                if (cancelled) return;
+                const foundPost = otherData.find((p: BlogPost) => p.id === parseInt(targetId));
                 if (foundPost) {
                   setActiveTab(otherCategory);
                   setPosts(otherData);
-                  viewPost(foundPost);
-                  setInitialPostLoaded(true);
-                  setSearchParams({});
+                  loadPostContent(foundPost);
+                  if (queryPostId) setSearchParams({});
                 }
               });
           }
+        } else {
+          setSelectedPost(null);
         }
       })
       .catch(() => setLoading(false));
-  }, [activeTab]);
+    return () => { cancelled = true; };
+  }, [activeTab, postId]);
 
-  const viewPost = async (post: BlogPost) => {
+  const loadPostContent = async (post: BlogPost) => {
     setSelectedPost(post);
     setCommentsLoading(true);
     try {
@@ -121,10 +166,17 @@ export function BlogPage() {
     setCommentsLoading(false);
   };
 
+  const viewPost = (post: BlogPost) => {
+    const slug = post.category === 'dream' ? 'dreams' : 'sahlien';
+    navigate(`/blog/${slug}/${post.id}`);
+  };
+
   const goBack = () => {
     setSelectedPost(null);
     setComments([]);
     setNewComment('');
+    const slug = activeTab === 'dream' ? 'dreams' : 'sahlien';
+    navigate(`/blog/${slug}`);
   };
 
   const submitComment = async (e: React.FormEvent) => {

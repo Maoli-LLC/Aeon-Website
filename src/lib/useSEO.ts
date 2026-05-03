@@ -6,6 +6,7 @@ interface SEOOptions {
   canonical?: string;
   image?: string;
   type?: string;
+  jsonLd?: object | null;
 }
 
 const DEFAULT_IMAGE = 'https://www.iamsahlien.com/team-aeon-logo.png';
@@ -32,7 +33,9 @@ function setLink(rel: string, href: string) {
   el.setAttribute('href', href);
 }
 
-export function useSEO({ title, description, canonical, image, type = 'website' }: SEOOptions) {
+const PAGE_JSONLD_ID = 'page-jsonld';
+
+export function useSEO({ title, description, canonical, image, type = 'website', jsonLd }: SEOOptions) {
   useEffect(() => {
     const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} | Sahlien - Music, Dreams & Digital Creation`;
     const desc = description || 'Free dream interpretations, custom music creation, and website & app development by Sahlien.';
@@ -52,5 +55,20 @@ export function useSEO({ title, description, canonical, image, type = 'website' 
     setMeta('meta[name="twitter:title"]', 'content', fullTitle);
     setMeta('meta[name="twitter:description"]', 'content', desc);
     setMeta('meta[name="twitter:image"]', 'content', img);
-  }, [title, description, canonical, image, type]);
+
+    const existing = document.getElementById(PAGE_JSONLD_ID);
+    if (existing) existing.remove();
+    if (jsonLd) {
+      const script = document.createElement('script');
+      script.id = PAGE_JSONLD_ID;
+      script.type = 'application/ld+json';
+      script.textContent = JSON.stringify(jsonLd);
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      const el = document.getElementById(PAGE_JSONLD_ID);
+      if (el) el.remove();
+    };
+  }, [title, description, canonical, image, type, JSON.stringify(jsonLd)]);
 }

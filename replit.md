@@ -5,6 +5,10 @@ This is a React + TypeScript website built with Vite and Tailwind CSS v4. It's a
 
 ## Features
 - **Dual Blog System**: Sahlien Blog and Dream Blog with keyword search
+  - Per-post URLs for SEO/Google indexing: `/blog/sahlien/:id` and `/blog/dreams/:id`
+  - Note: post `category` values in DB are `'sahlien'` and `'dream'` (singular), but URL slugs use `'sahlien'`/`'dreams'`
+  - Per-post `<title>`, meta description, canonical, OpenGraph, and BlogPosting JSON-LD set via `useSEO` hook
+  - Dynamic sitemap at `/sitemap.xml` (served by backend on port 3001) lists every published post
 - **Sovereign Dream Lattice**: Free dream interpretation service
 - **Music Creation**: Commission songs ($97) or albums ($444) with free lyrics
 - **Website/App Creation**: Free design concepts, then commission full build with custom Stripe payment links

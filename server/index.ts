@@ -275,11 +275,14 @@ async function main() {
         { url: "/", priority: "1.0", changefreq: "weekly" },
         { url: "/blog/sahlien", priority: "0.9", changefreq: "weekly" },
         { url: "/blog/dreams", priority: "0.9", changefreq: "weekly" },
-        { url: "/dream-lattice", priority: "0.8", changefreq: "monthly" },
-        { url: "/music-creation", priority: "0.8", changefreq: "monthly" },
-        { url: "/webapp-service", priority: "0.8", changefreq: "monthly" },
+        { url: "/dream-lattice", priority: "0.9", changefreq: "weekly" },
+        { url: "/music", priority: "0.9", changefreq: "weekly" },
+        { url: "/services", priority: "0.9", changefreq: "weekly" },
         { url: "/store", priority: "0.7", changefreq: "monthly" },
+        { url: "/reviews", priority: "0.7", changefreq: "weekly" },
         { url: "/contact", priority: "0.6", changefreq: "monthly" },
+        { url: "/privacy", priority: "0.3", changefreq: "yearly" },
+        { url: "/terms", priority: "0.3", changefreq: "yearly" },
       ];
       
       let xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -296,7 +299,7 @@ async function main() {
       }
       
       for (const post of posts) {
-        const blogType = post.category === 'dreams' ? 'dreams' : 'sahlien';
+        const blogType = post.category === 'dream' ? 'dreams' : 'sahlien';
         xml += `  <url>
     <loc>${baseUrl}/blog/${blogType}/${post.id}</loc>
     <lastmod>${new Date(post.updatedAt ?? post.createdAt ?? new Date()).toISOString().split('T')[0]}</lastmod>
