@@ -1737,15 +1737,38 @@ async function main() {
 
   // ==================== END ANALYTICS ENDPOINTS ====================
 
+  // Retry a DB operation when the failure is a transient connection drop.
+  // Supabase/Postgres connection-level errors: 08006, 08003, 08001, 57P01, plus socket resets.
+  async function withDbRetry<T>(label: string, fn: () => Promise<T>, attempts = 3): Promise<T> {
+    const transientCodes = new Set(["08006", "08003", "08001", "08004", "57P01", "ECONNRESET", "ETIMEDOUT"]);
+    let lastErr: any;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await fn();
+      } catch (err: any) {
+        lastErr = err;
+        const code = err?.code || err?.cause?.code;
+        const isTransient = transientCodes.has(code);
+        if (!isTransient || i === attempts - 1) throw err;
+        const delay = 500 * Math.pow(2, i);
+        console.warn(`[${label}] transient DB error (${code}), retrying in ${delay}ms (attempt ${i + 1}/${attempts})`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+    throw lastErr;
+  }
+
   // Background job to process scheduled emails (runs every minute)
   async function processScheduledEmails() {
     try {
       const now = new Date();
-      const pendingEmails = await db.select().from(scheduledEmails)
-        .where(and(
-          eq(scheduledEmails.status, "pending"),
-          lte(scheduledEmails.scheduledFor, now)
-        ));
+      const pendingEmails = await withDbRetry("scheduled-emails", () =>
+        db.select().from(scheduledEmails)
+          .where(and(
+            eq(scheduledEmails.status, "pending"),
+            lte(scheduledEmails.scheduledFor, now)
+          ))
+      );
 
       for (const scheduled of pendingEmails) {
         try {
